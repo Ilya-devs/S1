@@ -1,10 +1,11 @@
 import { Suspense, lazy } from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Navigate, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from '@/context/AuthContext'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { ResponsiveShell } from '@/layouts/ResponsiveShell'
 import Login from '@/pages/Login'
+import { AppErrorBoundary } from '@/components/AppErrorBoundary'
 
 const Dashboard = lazy(() => import('@/pages/Dashboard'))
 const Sales = lazy(() => import('@/pages/Sales'))
@@ -32,7 +33,8 @@ const queryClient = new QueryClient({
 
 export default function App() {
   return (
-    <QueryClientProvider client={queryClient}>
+    <AppErrorBoundary>
+      <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <BrowserRouter>
           <Routes>
@@ -53,12 +55,14 @@ export default function App() {
               <Route path="/debts" element={<Suspense fallback={<PageFallback />}><Debts /></Suspense>} />
               <Route path="/returns" element={<Suspense fallback={<PageFallback />}><Returns /></Suspense>} />
               <Route path="/reports" element={<Suspense fallback={<PageFallback />}><Reports /></Suspense>} />
-              <Route path="/backup" element={<Suspense fallback={<PageFallback />}><Backup /></Suspense>} />
-              <Route path="/settings" element={<Suspense fallback={<PageFallback />}><Settings /></Suspense>} />
+              <Route path="/backup" element={<ProtectedRoute roles={['owner', 'admin']}><Suspense fallback={<PageFallback />}><Backup /></Suspense></ProtectedRoute>} />
+              <Route path="/settings" element={<ProtectedRoute roles={['owner', 'admin']}><Suspense fallback={<PageFallback />}><Settings /></Suspense></ProtectedRoute>} />
+              <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
           </Routes>
         </BrowserRouter>
       </AuthProvider>
-    </QueryClientProvider>
+      </QueryClientProvider>
+    </AppErrorBoundary>
   )
 }

@@ -50,7 +50,7 @@ body {
 .tabular-nums-ltr {
   font-variant-numeric: tabular-nums;
   direction: ltr;
-  unicode-bidi: plate;
+  unicode-bidi: isolate;
   font-family: var(--font-display);
 }
 

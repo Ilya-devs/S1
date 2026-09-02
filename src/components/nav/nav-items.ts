@@ -29,8 +29,8 @@ export const navItems: NavItem[] = [
   { to: '/debts', label: 'الديون', icon: Wallet },
   { to: '/returns', label: 'المرتجعات', icon: Undo2 },
   { to: '/reports', label: 'التقارير', icon: BarChart3 },
-  { to: '/backup', label: 'النسخ الاحتياطي', icon: DatabaseBackup },
-  { to: '/settings', label: 'الإعدادات', icon: Settings },
+  { to: '/backup', label: 'النسخ الاحتياطي', icon: DatabaseBackup, roles: ['owner', 'admin'] },
+  { to: '/settings', label: 'الإعدادات', icon: Settings, roles: ['owner', 'admin'] },
 ]
 
 // Compact primary set for mobile bottom tab bar
@@ -40,3 +40,7 @@ export const mobileTabItems: NavItem[] = [
   { to: '/customers', label: 'الزبائن', icon: Users },
   { to: '/debts', label: 'الديون', icon: Wallet },
 ]
+
+export function canAccessNavItem(item: NavItem, role?: string) {
+  return !item.roles || (!!role && item.roles.includes(role))
+}

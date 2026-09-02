@@ -187,6 +187,16 @@ function NewPurchaseModal({
       setError('الشراء بالدين أو الجزئي يتطلب اختيار مورد')
       return
     }
+    if (cart.some((line) => !Number.isFinite(line.quantity) || line.quantity <= 0 || !Number.isFinite(line.unit_price_iqd) || line.unit_price_iqd < 0)) {
+      setError('تحقق من كميات وأسعار المنتجات')
+      return
+    }
+    const partialPaid = Math.round(Number(paidAmount) || 0)
+    if (paymentMethod === 'partial' && (partialPaid <= 0 || partialPaid > total)) {
+      setError('المبلغ المدفوع جزئياً يجب أن يكون أكبر من صفر ولا يتجاوز الإجمالي')
+      return
+    }
+
     setSaving(true)
     try {
       const paid = paymentMethod === 'cash' ? total : paymentMethod === 'credit' ? 0 : Math.round(Number(paidAmount) || 0)

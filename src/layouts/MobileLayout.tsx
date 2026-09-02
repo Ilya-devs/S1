@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { Menu, X, LogOut } from 'lucide-react'
-import { navItems, mobileTabItems } from '@/components/nav/nav-items'
+import { canAccessNavItem, navItems, mobileTabItems } from '@/components/nav/nav-items'
 import { useAuth } from '@/context/AuthContext'
 import { cn } from '@/lib/cn'
 
@@ -55,7 +55,7 @@ export function MobileLayout() {
               </button>
             </div>
             <nav className="flex-1 space-y-1 overflow-y-auto">
-              {navItems.map((item) => (
+              {navItems.filter((item) => canAccessNavItem(item, profile?.role)).map((item) => (
                 <NavLink
                   key={item.to}
                   to={item.to}
