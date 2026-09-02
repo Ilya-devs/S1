@@ -1,0 +1,75 @@
+@import "tailwindcss";
+
+@theme {
+  /* ILYA — Dark luxury palette */
+  --font-arabic: "IBM Plex Sans Arabic", "Segoe UI", sans-serif;
+  --font-display: "Space Grotesk", "IBM Plex Sans Arabic", sans-serif;
+
+  --color-ink-950: #08090a;
+  --color-ink-900: #0d0f11;
+  --color-ink-850: #121417;
+  --color-ink-800: #17191d;
+  --color-ink-700: #212328;
+  --color-ink-600: #303339;
+  --color-ink-500: #4a4d54;
+  --color-ink-400: #71747c;
+  --color-ink-300: #9a9da4;
+  --color-ink-200: #c4c6cb;
+  --color-ink-100: #e7e8ea;
+  --color-ink-50: #f6f6f7;
+
+  --color-brass-300: #e8cd85;
+  --color-brass-400: #d9b95f;
+  --color-brass-500: #c9a227;
+  --color-brass-600: #a8841e;
+  --color-brass-700: #866718;
+
+  --color-emerald-500: #2e9e6c;
+  --color-emerald-400: #45c085;
+  --color-crimson-500: #c94141;
+  --color-crimson-400: #e05a5a;
+  --color-amber-500: #d99b2b;
+
+  --shadow-panel: 0 1px 0 0 rgba(255,255,255,0.04) inset, 0 20px 40px -20px rgba(0,0,0,0.6);
+  --shadow-glow-brass: 0 0 0 1px rgba(201,162,39,0.25), 0 8px 24px -8px rgba(201,162,39,0.35);
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-arabic);
+  background-color: var(--color-ink-950);
+  color: var(--color-ink-100);
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
+}
+
+/* Numbers / currency should render as tabular figures, LTR flow inside RTL doc */
+.tabular-nums-ltr {
+  font-variant-numeric: tabular-nums;
+  direction: ltr;
+  unicode-bidi: plate;
+  font-family: var(--font-display);
+}
+
+::selection {
+  background: var(--color-brass-500);
+  color: var(--color-ink-950);
+}
+
+/* Thin brass scrollbar for luxury feel */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--color-ink-700);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--color-brass-700); }
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-up { animation: fade-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) both; }
