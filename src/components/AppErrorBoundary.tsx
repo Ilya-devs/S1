@@ -16,30 +16,35 @@ export class AppErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    // Keep the diagnostic useful without logging secrets or user data.
-    console.error('[ILYA] Unhandled application error', error, info.componentStack)
+    console.error('[ILYA] Unhandled application error', error, info)
+  }
+
+  handleReload = () => {
+    window.location.reload()
   }
 
   render() {
     if (!this.state.error) return this.props.children
 
     return (
-      <main dir="rtl" className="flex min-h-[100dvh] items-center justify-center bg-ink-950 px-4 text-ink-100">
-        <section className="w-full max-w-lg rounded-2xl border border-ink-800 bg-ink-900 p-6 shadow-[var(--shadow-panel)]">
-          <h1 className="text-lg font-semibold text-ink-50">تعذر تشغيل التطبيق</h1>
-          <p className="mt-2 text-sm leading-6 text-ink-400">
-            حدث خطأ غير متوقع أثناء تشغيل الواجهة. أعد تحميل الصفحة. إذا استمرت المشكلة، افتح أدوات المطور
-            وراجع أول خطأ في Console.
+      <main dir="rtl" className="flex min-h-[100dvh] items-center justify-center bg-ink-950 px-5 text-ink-100">
+        <section className="w-full max-w-lg rounded-2xl border border-ink-700 bg-ink-900 p-6 shadow-panel">
+          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-crimson-500/10 text-crimson-400">
+            !
+          </div>
+          <h1 className="text-lg font-semibold">تعذر تشغيل التطبيق</h1>
+          <p className="mt-2 text-sm leading-7 text-ink-300">
+            حدث خطأ غير متوقع أثناء تشغيل الواجهة. أعد تحميل الصفحة. إذا استمر الخطأ، افتح أدوات المطور وسجل رسالة الخطأ لإصلاح السبب الجذري.
           </p>
-          <pre className="mt-4 max-h-40 overflow-auto rounded-xl bg-ink-950 p-3 text-left text-xs text-crimson-400" dir="ltr">
+          <pre className="mt-4 max-h-32 overflow-auto rounded-xl bg-ink-950 p-3 text-left text-xs text-crimson-300" dir="ltr">
             {this.state.error.message}
           </pre>
           <button
             type="button"
-            onClick={() => window.location.reload()}
-            className="mt-4 h-10 rounded-xl bg-brass-500 px-4 text-sm font-medium text-ink-950"
+            onClick={this.handleReload}
+            className="mt-5 rounded-xl bg-brass-500 px-4 py-2 text-sm font-semibold text-ink-950 hover:bg-brass-400"
           >
-            إعادة تحميل
+            إعادة تحميل التطبيق
           </button>
         </section>
       </main>

@@ -40,7 +40,3 @@ export const mobileTabItems: NavItem[] = [
   { to: '/customers', label: 'الزبائن', icon: Users },
   { to: '/debts', label: 'الديون', icon: Wallet },
 ]
-
-export function canAccessNavItem(item: NavItem, role?: string) {
-  return !item.roles || (!!role && item.roles.includes(role))
-}

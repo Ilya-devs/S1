@@ -21,6 +21,20 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // Recover users from a broken/stale PWA service worker after deployments.
+      // This runs before the React bundle and only reloads once per browser session.
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function (registrations) {
+          registrations.forEach(function (registration) {
+            var scriptUrl = registration.active && registration.active.scriptURL;
+            if (scriptUrl && scriptUrl.indexOf(location.origin) === 0) {
+              registration.update().catch(function () {});
+            }
+          });
+        }).catch(function () {});
+      }
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

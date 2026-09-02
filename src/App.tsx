@@ -1,11 +1,12 @@
 import { Suspense, lazy } from 'react'
-import { BrowserRouter, Navigate, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from '@/context/AuthContext'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { ResponsiveShell } from '@/layouts/ResponsiveShell'
 import Login from '@/pages/Login'
-import { AppErrorBoundary } from '@/components/AppErrorBoundary'
+import { StartupScreen } from '@/components/StartupScreen'
+import { isSupabaseConfigured } from '@/lib/supabase'
 
 const Dashboard = lazy(() => import('@/pages/Dashboard'))
 const Sales = lazy(() => import('@/pages/Sales'))
@@ -32,9 +33,18 @@ const queryClient = new QueryClient({
 })
 
 export default function App() {
+  if (!isSupabaseConfigured) {
+    return (
+      <StartupScreen
+        title="إعدادات الاتصال غير مكتملة"
+        message="لم تصل متغيرات Supabase إلى نسخة الإنتاج أثناء عملية البناء."
+        action="في Cloudflare Pages: Settings → Environment variables، أضف VITE_SUPABASE_URL و VITE_SUPABASE_ANON_KEY لكل بيئة مستخدمة في Build، ثم نفّذ Deploy جديد. لا تضع المفتاح في الكود أو Git."
+      />
+    )
+  }
+
   return (
-    <AppErrorBoundary>
-      <QueryClientProvider client={queryClient}>
+    <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <BrowserRouter>
           <Routes>
@@ -55,14 +65,12 @@ export default function App() {
               <Route path="/debts" element={<Suspense fallback={<PageFallback />}><Debts /></Suspense>} />
               <Route path="/returns" element={<Suspense fallback={<PageFallback />}><Returns /></Suspense>} />
               <Route path="/reports" element={<Suspense fallback={<PageFallback />}><Reports /></Suspense>} />
-              <Route path="/backup" element={<ProtectedRoute roles={['owner', 'admin']}><Suspense fallback={<PageFallback />}><Backup /></Suspense></ProtectedRoute>} />
-              <Route path="/settings" element={<ProtectedRoute roles={['owner', 'admin']}><Suspense fallback={<PageFallback />}><Settings /></Suspense></ProtectedRoute>} />
-              <Route path="*" element={<Navigate to="/" replace />} />
+              <Route path="/backup" element={<ProtectedRoute roles={["owner", "admin"]}><Suspense fallback={<PageFallback />}><Backup /></Suspense></ProtectedRoute>} />
+              <Route path="/settings" element={<ProtectedRoute roles={["owner", "admin"]}><Suspense fallback={<PageFallback />}><Settings /></Suspense></ProtectedRoute>} />
             </Route>
           </Routes>
         </BrowserRouter>
       </AuthProvider>
-      </QueryClientProvider>
-    </AppErrorBoundary>
+    </QueryClientProvider>
   )
 }

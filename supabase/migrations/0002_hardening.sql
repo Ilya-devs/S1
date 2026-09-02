@@ -1,191 +1,241 @@
--- ILYA hardening migration.
--- Safe to apply after 0001_init.sql. No existing data is deleted.
+-- ILYA Accounting — 0002 hardening
+-- Apply AFTER 0001_init.sql.
+-- This migration is safe to run repeatedly and does not delete business data.
 
--- Do not allow normal clients to manufacture stock movements directly.
-drop policy if exists stock_movements_write on stock_movements;
+begin;
 
--- Stock movements are written by controlled trigger functions only.
--- Keep reads available to active users.
-create policy stock_movements_read on stock_movements
-  for select using (is_active_user());
+-- ---------------------------------------------------------------------------
+-- 1. Prevent direct client writes to the stock ledger.
+-- Stock movements must be produced by trusted database triggers.
+-- 0001 created this policy, so remove it before replacing the rule.
+-- ---------------------------------------------------------------------------
+drop policy if exists stock_movements_write on public.stock_movements;
 
--- Tighten profile visibility: a user can see their own profile; only owner/admin
--- can see the team. This also avoids exposing phone/avatar data to viewers.
-drop policy if exists profiles_select on profiles;
-create policy profiles_select on profiles
-  for select using (id = auth.uid() or my_role() in ('owner', 'admin'));
-
--- Prevent negative/invalid monetary values at the database boundary.
-alter table sales_invoices
-  drop constraint if exists sales_paid_not_over_total;
-alter table sales_invoices
-  add constraint sales_paid_not_over_total check (paid_iqd >= 0 and paid_iqd <= total_iqd);
-
-alter table purchase_invoices
-  drop constraint if exists purchase_paid_not_over_total;
-alter table purchase_invoices
-  add constraint purchase_paid_not_over_total check (paid_iqd >= 0 and paid_iqd <= total_iqd);
-
-alter table sales_invoices
-  drop constraint if exists sales_amounts_nonnegative;
-alter table sales_invoices
-  add constraint sales_amounts_nonnegative check (subtotal_iqd >= 0 and discount_iqd >= 0 and total_iqd >= 0);
-
-alter table purchase_invoices
-  drop constraint if exists purchase_amounts_nonnegative;
-alter table purchase_invoices
-  add constraint purchase_amounts_nonnegative check (subtotal_iqd >= 0 and discount_iqd >= 0 and total_iqd >= 0);
-
-alter table sales_invoice_items
-  drop constraint if exists sales_item_quantity_positive;
-alter table sales_invoice_items
-  add constraint sales_item_quantity_positive check (quantity > 0);
-
-alter table purchase_invoice_items
-  drop constraint if exists purchase_item_quantity_positive;
-alter table purchase_invoice_items
-  add constraint purchase_item_quantity_positive check (quantity > 0);
-
-alter table sales_return_items
-  drop constraint if exists sales_return_quantity_positive;
-alter table sales_return_items
-  add constraint sales_return_quantity_positive check (quantity > 0);
-
-alter table purchase_return_items
-  drop constraint if exists purchase_return_quantity_positive;
-alter table purchase_return_items
-  add constraint purchase_return_quantity_positive check (quantity > 0);
-
--- Trigger functions must be able to update stock for cashiers while still
--- exposing no generic privileged RPC to the browser.
-create or replace function apply_sale_item_stock()
+-- ---------------------------------------------------------------------------
+-- 2. Make stock trigger functions trusted and explicit.
+-- SECURITY DEFINER is required because the caller (e.g. cashier) is not
+-- allowed to insert into stock_movements directly.
+-- ---------------------------------------------------------------------------
+create or replace function public.apply_sale_item_stock()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
-declare
-  available numeric;
-  invoice_status_value invoice_status;
 begin
-  select status into invoice_status_value
-  from sales_invoices
-  where id = new.invoice_id;
-
-  if invoice_status_value is distinct from 'confirmed' then
-    raise exception 'Sales items can only be added to a confirmed invoice';
+  if new.quantity <= 0 then
+    raise exception 'Sale quantity must be greater than zero';
   end if;
 
-  select quantity_on_hand into available
-  from products
+  update public.products
+  set quantity_on_hand = quantity_on_hand - new.quantity
   where id = new.product_id
-  for update;
+    and quantity_on_hand >= new.quantity;
 
-  if available is null then
-    raise exception 'Product not found';
-  end if;
-
-  if available < new.quantity then
+  if not found then
     raise exception 'Insufficient stock for product %', new.product_id;
   end if;
 
-  update products
+  insert into public.stock_movements(
+    product_id, movement_type, quantity_delta, reference_table, reference_id, created_by
+  )
+  values (
+    new.product_id, 'sale', -new.quantity, 'sales_invoices', new.invoice_id, auth.uid()
+  );
+
+  return new;
+end;
+$$;
+
+create or replace function public.apply_purchase_item_stock()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  if new.quantity <= 0 then
+    raise exception 'Purchase quantity must be greater than zero';
+  end if;
+
+  update public.products
+  set quantity_on_hand = quantity_on_hand + new.quantity
+  where id = new.product_id;
+
+  if not found then
+    raise exception 'Product % does not exist', new.product_id;
+  end if;
+
+  insert into public.stock_movements(
+    product_id, movement_type, quantity_delta, reference_table, reference_id, created_by
+  )
+  values (
+    new.product_id, 'purchase', new.quantity, 'purchase_invoices', new.invoice_id, auth.uid()
+  );
+
+  return new;
+end;
+$$;
+
+create or replace function public.apply_sale_return_stock()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  if new.quantity <= 0 then
+    raise exception 'Return quantity must be greater than zero';
+  end if;
+
+  update public.products
+  set quantity_on_hand = quantity_on_hand + new.quantity
+  where id = new.product_id;
+
+  if not found then
+    raise exception 'Product % does not exist', new.product_id;
+  end if;
+
+  insert into public.stock_movements(
+    product_id, movement_type, quantity_delta, reference_table, reference_id, created_by
+  )
+  values (
+    new.product_id, 'sale_return', new.quantity, 'sales_returns', new.return_id, auth.uid()
+  );
+
+  return new;
+end;
+$$;
+
+create or replace function public.apply_purchase_return_stock()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  if new.quantity <= 0 then
+    raise exception 'Return quantity must be greater than zero';
+  end if;
+
+  update public.products
   set quantity_on_hand = quantity_on_hand - new.quantity
-  where id = new.product_id;
-
-  insert into stock_movements(product_id, movement_type, quantity_delta, reference_table, reference_id, created_by)
-  values (new.product_id, 'sale', -new.quantity, 'sales_invoices', new.invoice_id, auth.uid());
-
-  return new;
-end;
-$$;
-
-create or replace function apply_purchase_item_stock()
-returns trigger
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  invoice_status_value invoice_status;
-begin
-  select status into invoice_status_value
-  from purchase_invoices
-  where id = new.invoice_id;
-
-  if invoice_status_value is distinct from 'confirmed' then
-    raise exception 'Purchase items can only be added to a confirmed invoice';
-  end if;
-
-  update products
-  set quantity_on_hand = quantity_on_hand + new.quantity
-  where id = new.product_id;
-
-  if not found then
-    raise exception 'Product not found';
-  end if;
-
-  insert into stock_movements(product_id, movement_type, quantity_delta, reference_table, reference_id, created_by)
-  values (new.product_id, 'purchase', new.quantity, 'purchase_invoices', new.invoice_id, auth.uid());
-
-  return new;
-end;
-$$;
-
-create or replace function apply_sale_return_stock()
-returns trigger
-language plpgsql
-security definer
-set search_path = public
-as $$
-begin
-  update products
-  set quantity_on_hand = quantity_on_hand + new.quantity
-  where id = new.product_id;
-
-  if not found then
-    raise exception 'Product not found';
-  end if;
-
-  insert into stock_movements(product_id, movement_type, quantity_delta, reference_table, reference_id, created_by)
-  values (new.product_id, 'sale_return', new.quantity, 'sales_returns', new.return_id, auth.uid());
-
-  return new;
-end;
-$$;
-
-create or replace function apply_purchase_return_stock()
-returns trigger
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  available numeric;
-begin
-  select quantity_on_hand into available
-  from products
   where id = new.product_id
-  for update;
+    and quantity_on_hand >= new.quantity;
 
-  if available is null then
-    raise exception 'Product not found';
+  if not found then
+    raise exception 'Insufficient stock for purchase return, product %', new.product_id;
   end if;
 
-  if available < new.quantity then
-    raise exception 'Insufficient stock for purchase return';
-  end if;
-
-  update products
-  set quantity_on_hand = quantity_on_hand - new.quantity
-  where id = new.product_id;
-
-  insert into stock_movements(product_id, movement_type, quantity_delta, reference_table, reference_id, created_by)
-  values (new.product_id, 'purchase_return', -new.quantity, 'purchase_returns', new.return_id, auth.uid());
+  insert into public.stock_movements(
+    product_id, movement_type, quantity_delta, reference_table, reference_id, created_by
+  )
+  values (
+    new.product_id, 'purchase_return', -new.quantity, 'purchase_returns', new.return_id, auth.uid()
+  );
 
   return new;
 end;
 $$;
 
--- Only the trigger path should write stock movements.
-revoke insert on stock_movements from anon, authenticated;
+-- ---------------------------------------------------------------------------
+-- 3. Future-row data integrity. NOT VALID avoids rewriting/rejecting existing
+-- data during deployment. These constraints can be validated separately after
+-- existing data has been reviewed.
+-- ---------------------------------------------------------------------------
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.products'::regclass
+      and conname = 'products_nonnegative_stock'
+  ) then
+    alter table public.products
+      add constraint products_nonnegative_stock
+      check (quantity_on_hand >= 0) not valid;
+  end if;
+
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.products'::regclass
+      and conname = 'products_nonnegative_prices'
+  ) then
+    alter table public.products
+      add constraint products_nonnegative_prices
+      check (cost_price_iqd >= 0 and sale_price_iqd >= 0) not valid;
+  end if;
+
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.sales_invoices'::regclass
+      and conname = 'sales_invoice_amounts_valid'
+  ) then
+    alter table public.sales_invoices
+      add constraint sales_invoice_amounts_valid
+      check (
+        subtotal_iqd >= 0
+        and discount_iqd >= 0
+        and total_iqd >= 0
+        and paid_iqd >= 0
+        and paid_iqd <= total_iqd
+      ) not valid;
+  end if;
+
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.purchase_invoices'::regclass
+      and conname = 'purchase_invoice_amounts_valid'
+  ) then
+    alter table public.purchase_invoices
+      add constraint purchase_invoice_amounts_valid
+      check (
+        subtotal_iqd >= 0
+        and discount_iqd >= 0
+        and total_iqd >= 0
+        and paid_iqd >= 0
+        and paid_iqd <= total_iqd
+      ) not valid;
+  end if;
+
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.sales_invoice_items'::regclass
+      and conname = 'sales_item_positive_values'
+  ) then
+    alter table public.sales_invoice_items
+      add constraint sales_item_positive_values
+      check (quantity > 0 and unit_price_iqd >= 0) not valid;
+  end if;
+
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.purchase_invoice_items'::regclass
+      and conname = 'purchase_item_positive_values'
+  ) then
+    alter table public.purchase_invoice_items
+      add constraint purchase_item_positive_values
+      check (quantity > 0 and unit_cost_iqd >= 0) not valid;
+  end if;
+
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.sales_return_items'::regclass
+      and conname = 'sales_return_item_positive_values'
+  ) then
+    alter table public.sales_return_items
+      add constraint sales_return_item_positive_values
+      check (quantity > 0 and unit_price_iqd >= 0) not valid;
+  end if;
+
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.purchase_return_items'::regclass
+      and conname = 'purchase_return_item_positive_values'
+  ) then
+    alter table public.purchase_return_items
+      add constraint purchase_return_item_positive_values
+      check (quantity > 0 and unit_cost_iqd >= 0) not valid;
+  end if;
+end $$;
+
+commit;

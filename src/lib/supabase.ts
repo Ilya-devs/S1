@@ -1,35 +1,27 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { createClient } from '@supabase/supabase-js'
 
-const rawUrl = import.meta.env.VITE_SUPABASE_URL?.trim()
-const rawAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim()
+const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
+const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
 
-function isValidSupabaseUrl(value: string | undefined): value is string {
-  if (!value) return false
-  try {
-    const url = new URL(value)
-    return url.protocol === 'https:' && url.hostname.endsWith('.supabase.co')
-  } catch {
-    return false
-  }
+export const supabaseConfig = {
+  url: url?.trim() ?? '',
+  anonKey: anonKey?.trim() ?? '',
 }
 
-export const isSupabaseConfigured = isValidSupabaseUrl(rawUrl) && Boolean(rawAnonKey)
+export const isSupabaseConfigured =
+  /^https:\/\/[^\s/]+\.supabase\.co(?:\/.*)?$/i.test(supabaseConfig.url) &&
+  supabaseConfig.anonKey.length > 0
 
-export const supabaseConfigError = !isSupabaseConfigured
-  ? 'إعدادات Supabase غير مكتملة. تأكد من VITE_SUPABASE_URL و VITE_SUPABASE_ANON_KEY ثم أعد بناء ونشر المشروع.'
-  : null
-
-const missingConfigClient = new Proxy({} as SupabaseClient, {
-  get() {
-    throw new Error(supabaseConfigError ?? 'Supabase configuration is unavailable')
+// Keep module evaluation safe when Cloudflare has not injected Vite variables.
+// App renders a diagnostic screen instead of crashing before React mounts.
+export const supabase = createClient(
+  isSupabaseConfigured ? supabaseConfig.url : 'https://invalid.supabase.co',
+  isSupabaseConfigured ? supabaseConfig.anonKey : 'invalid-anon-key',
+  {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    },
   },
-})
-
-export const supabase: SupabaseClient = isSupabaseConfigured
-  ? createClient(rawUrl, rawAnonKey, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-      },
-    })
-  : missingConfigClient
+)

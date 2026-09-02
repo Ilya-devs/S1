@@ -27,7 +27,6 @@ const TABLES = [
 export default function Backup() {
   const { profile } = useAuth()
   const [working, setWorking] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
   const { data: log, refetch } = useQuery({
     queryKey: ['backup_log'],
@@ -39,12 +38,10 @@ export default function Backup() {
 
   async function handleExport() {
     setWorking(true)
-    setError(null)
     try {
       const dump: Record<string, unknown> = {}
       for (const table of TABLES) {
-        const { data, error: tableError } = await supabase.from(table).select('*')
-        if (tableError) throw tableError
+        const { data } = await supabase.from(table).select('*')
         dump[table] = data ?? []
       }
       const blob = new Blob([JSON.stringify(dump, null, 2)], { type: 'application/json' })
@@ -56,13 +53,8 @@ export default function Backup() {
       URL.revokeObjectURL(url)
 
       const size = new Blob([JSON.stringify(dump)]).size
-      const { error: logError } = await supabase
-        .from('backup_log')
-        .insert({ triggered_by: profile?.id, status: 'success', file_size_bytes: size })
-      if (logError) throw logError
+      await supabase.from('backup_log').insert({ triggered_by: profile?.id, status: 'success', file_size_bytes: size })
       void refetch()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'تعذر إنشاء النسخة الاحتياطية')
     } finally {
       setWorking(false)
     }
@@ -83,7 +75,6 @@ export default function Backup() {
             الإلكتروني أو مكان آمن.
           </p>
         </div>
-        {error && <p className="w-full max-w-lg rounded-xl border border-crimson-500/30 bg-crimson-500/10 p-3 text-xs text-crimson-400">{error}</p>}
         <Button onClick={handleExport} disabled={working}>
           <Download className="h-4 w-4" /> {working ? 'جارٍ التصدير...' : 'تنزيل نسخة احتياطية'}
         </Button>

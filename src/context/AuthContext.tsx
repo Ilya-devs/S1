@@ -1,13 +1,13 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { isSupabaseConfigured, supabase, supabaseConfigError } from '@/lib/supabase'
+import { isSupabaseConfigured, supabase } from '@/lib/supabase'
 import type { Profile } from '@/lib/types'
 
 interface AuthState {
   session: Session | null
   profile: Profile | null
   loading: boolean
-  configError: string | null
+  error: string | null
   signIn: (email: string, password: string) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
 }
@@ -18,51 +18,75 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!isSupabaseConfigured) {
-      setLoading(false)
-      return
-    }
-
     let mounted = true
 
     async function loadProfile(userId: string) {
-      const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle()
+      const { data, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle()
 
       if (!mounted) return
 
-      if (error) {
-        console.error('[ILYA] Failed to load user profile', error.message)
+      if (profileError) {
         setProfile(null)
+        setError(`تعذر تحميل ملف المستخدم: ${profileError.message}`)
+      } else if (!data) {
+        setProfile(null)
+        setError('الحساب موجود في Supabase Auth، لكن لا يوجد له سجل في جدول profiles.')
+      } else if (!data.is_active) {
+        setProfile(data as Profile)
+        setError('هذا الحساب غير مفعّل. تواصل مع مدير النظام.')
       } else {
-        setProfile((data as Profile | null) ?? null)
+        setProfile(data as Profile)
+        setError(null)
       }
+
       setLoading(false)
     }
 
-    void supabase.auth.getSession().then(({ data, error }) => {
+    async function initialize() {
+      if (!isSupabaseConfigured) {
+        if (mounted) {
+          setLoading(false)
+          setError('إعدادات Supabase غير موجودة في نسخة الإنتاج. تأكد من VITE_SUPABASE_URL و VITE_SUPABASE_ANON_KEY في Cloudflare Pages ثم أعد النشر.')
+        }
+        return
+      }
+
+      const { data, error: sessionError } = await supabase.auth.getSession()
       if (!mounted) return
-      if (error) {
-        console.error('[ILYA] Failed to restore auth session', error.message)
-        setSession(null)
+
+      if (sessionError) {
         setLoading(false)
+        setError(`تعذر استعادة جلسة الدخول: ${sessionError.message}`)
         return
       }
 
       setSession(data.session)
-      if (data.session) void loadProfile(data.session.user.id)
+      if (data.session) await loadProfile(data.session.user.id)
       else setLoading(false)
-    })
+    }
+
+    void initialize()
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
       if (!mounted) return
       setSession(newSession)
 
       if (newSession) {
-        queueMicrotask(() => void loadProfile(newSession.user.id))
+        // Supabase holds an auth lock while invoking this callback. Defer the
+        // profile query until the callback has returned to avoid auth deadlocks.
+        setTimeout(() => {
+          if (mounted) void loadProfile(newSession.user.id)
+        }, 0)
       } else {
         setProfile(null)
+        setError(null)
         setLoading(false)
       }
     })
@@ -74,19 +98,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   async function signIn(email: string, password: string) {
-    if (!isSupabaseConfigured) return { error: supabaseConfigError ?? 'Supabase غير مهيأ' }
+    if (!isSupabaseConfigured) {
+      return { error: 'إعدادات Supabase غير مكتملة. راجع إعدادات Cloudflare Pages.' }
+    }
 
-    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
-    return { error: error?.message ?? null }
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+    return { error: signInError?.message ?? null }
   }
 
   async function signOut() {
-    if (!isSupabaseConfigured) return
     await supabase.auth.signOut()
   }
 
   return (
-    <AuthContext.Provider value={{ session, profile, loading, configError: supabaseConfigError, signIn, signOut }}>
+    <AuthContext.Provider value={{ session, profile, loading, error, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   )

@@ -10,7 +10,7 @@
 ## 1) إعداد Supabase
 
 1. أنشئ مشروعاً جديداً على [supabase.com](https://supabase.com).
-2. من قائمة **SQL Editor**، افتح ملفي `supabase/migrations/0001_init.sql` ثم `supabase/migrations/0002_hardening.sql` بالترتيب من هذا المشروع،
+2. من قائمة **SQL Editor**، افتح ملف `supabase/migrations/0001_init.sql` من هذا المشروع،
    انسخ محتواه بالكامل، والصقه وشغّله (Run). هذا سينشئ كل الجداول، الصلاحيات (RLS)،
    والعروض (Views) الخاصة بحساب الديون تلقائياً.
 3. من **Authentication → Providers**، فعّل تسجيل الدخول بالبريد الإلكتروني وكلمة المرور
@@ -64,7 +64,7 @@ git push -u origin main
    اختر أن تكون هذه المتغيرات مضافة لبيئتي **Production** و **Preview** معاً.
 5. اضغط **Save and Deploy**.
 
-> ملاحظة مهمة: يجب حفظ هذه القيم قبل كل Deployment جديد؛ Vite يحقنها وقت البناء (build time) داخل ملفات JS النهائية لأن Vite
+> ملاحظة مهمة: هذه القيم تُحقن وقت البناء (build time) داخل ملفات JS النهائية لأن Vite
 > يستخدمها كمتغيرات `import.meta.env`. هذا طبيعي وآمن هنا لأن مفتاح `anon` مصمم
 > ليكون عاماً من جهة العميل (client-side) — الحماية الحقيقية للبيانات تأتي من
 > سياسات RLS (Row Level Security) الموجودة في `0001_init.sql`، وهي التي تمنع أي شخص
@@ -144,3 +144,40 @@ supabase/migrations/ ملف SQL الكامل لإنشاء قاعدة البيا�
 الميزات التالية جاهزة الأساس في قاعدة البيانات (audit_log، notifications،
 stock_movements، devices) وتحتاج فقط واجهة إضافية عند الطلب — أرسل لي أي طلب
 جديد وسأضيفه دون تعقيد الباقي.
+
+
+## Supabase migration order
+
+The database in this repository uses ordered migrations:
+
+1. `supabase/migrations/0001_init.sql` — initial schema.
+2. `supabase/migrations/0002_hardening.sql` — security/data-integrity hardening for an existing `0001` database.
+
+If `0001_init.sql` was already applied, **do not run it again**. Run only `0002_hardening.sql`.
+
+`0002_hardening.sql` uses idempotent policy/constraint handling and does not drop business data.
+
+## Cloudflare Pages
+
+Build command:
+
+```text
+npm run build
+```
+
+Build output directory:
+
+```text
+dist
+```
+
+Required build-time environment variables:
+
+```text
+VITE_SUPABASE_URL
+VITE_SUPABASE_ANON_KEY
+```
+
+These values must be configured for the Cloudflare Pages environment that performs the production build, then a new deployment must be created. `VITE_*` values are embedded into the frontend during the Vite build.
+
+If the variables are missing or malformed, the app intentionally shows a diagnostic screen instead of failing with a blank page.

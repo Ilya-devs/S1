@@ -4,12 +4,11 @@ import { Button } from '@/components/ui/Button'
 import { Input, Label, Card } from '@/components/ui/primitives'
 
 export default function Login() {
-  const { signIn, configError } = useAuth()
+  const { signIn } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const profileMissing = new URLSearchParams(window.location.search).get('reason') === 'profile'
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()

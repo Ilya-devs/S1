@@ -1,14 +1,10 @@
 import type { ReactNode } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
+import { StartupScreen } from '@/components/StartupScreen'
 
-interface ProtectedRouteProps {
-  children: ReactNode
-  roles?: readonly string[]
-}
-
-export function ProtectedRoute({ children, roles }: ProtectedRouteProps) {
-  const { session, profile, loading, configError } = useAuth()
+export function ProtectedRoute({ children, roles }: { children: ReactNode; roles?: string[] }) {
+  const { session, profile, loading, error } = useAuth()
 
   if (loading) {
     return (
@@ -18,10 +14,21 @@ export function ProtectedRoute({ children, roles }: ProtectedRouteProps) {
     )
   }
 
-  if (configError) return <Navigate to="/login" replace />
   if (!session) return <Navigate to="/login" replace />
-  if (!profile || profile.is_active === false) return <Navigate to="/login?reason=profile" replace />
-  if (roles && !roles.includes(profile.role)) return <Navigate to="/" replace />
+
+  if (error || !profile) {
+    return (
+      <StartupScreen
+        title="تعذر تجهيز حسابك"
+        message={error ?? 'لم يتم العثور على ملف المستخدم.'}
+        action="تأكد من وجود سجل مطابق لمعرّف المستخدم في جدول profiles وأن is_active = true. لا تنشئ بيانات عشوائية؛ استخدم معرف المستخدم الحقيقي من Supabase Auth."
+      />
+    )
+  }
+
+  if (roles && !roles.includes(profile.role)) {
+    return <Navigate to="/" replace />
+  }
 
   return <>{children}</>
 }

@@ -1,11 +1,12 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import { LogOut } from 'lucide-react'
-import { canAccessNavItem, navItems } from '@/components/nav/nav-items'
+import { navItems } from '@/components/nav/nav-items'
 import { useAuth } from '@/context/AuthContext'
 import { cn } from '@/lib/cn'
 
 export function DesktopLayout() {
   const { profile, signOut } = useAuth()
+  const visibleNavItems = navItems.filter((item) => !item.roles || item.roles.includes(profile?.role ?? ''))
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-ink-950">
@@ -19,7 +20,7 @@ export function DesktopLayout() {
         </div>
 
         <nav className="flex-1 space-y-1 overflow-y-auto">
-          {navItems.filter((item) => canAccessNavItem(item, profile?.role)).map((item) => (
+          {visibleNavItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}

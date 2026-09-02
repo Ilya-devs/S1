@@ -32,6 +32,9 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // Only immutable/static build assets are precached. Supabase data is
+        // intentionally never cached by the service worker because this app
+        // handles accounting data and must not display stale records.
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
       },
     }),

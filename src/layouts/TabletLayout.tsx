@@ -1,20 +1,21 @@
 import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { LogOut, Menu, X } from 'lucide-react'
-import { canAccessNavItem, navItems } from '@/components/nav/nav-items'
+import { navItems } from '@/components/nav/nav-items'
 import { useAuth } from '@/context/AuthContext'
 import { cn } from '@/lib/cn'
 
 export function TabletLayout() {
   const [open, setOpen] = useState(false)
   const { profile, signOut } = useAuth()
+  const visibleNavItems = navItems.filter((item) => !item.roles || item.roles.includes(profile?.role ?? ''))
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-ink-950">
       {/* Icon rail, always visible */}
       <aside className="flex w-[76px] shrink-0 flex-col items-center gap-1 border-l border-ink-800 bg-ink-900/70 py-5">
         <img src="/icons/icon-192.png" alt="ILYA" className="mb-4 h-9 w-9 rounded-lg" />
-        {navItems.filter((item) => canAccessNavItem(item, profile?.role)).slice(0, 7).map((item) => (
+        {visibleNavItems.slice(0, 7).map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
@@ -49,7 +50,7 @@ export function TabletLayout() {
               </button>
             </div>
             <nav className="space-y-1">
-              {navItems.filter((item) => canAccessNavItem(item, profile?.role)).map((item) => (
+              {visibleNavItems.map((item) => (
                 <NavLink
                   key={item.to}
                   to={item.to}
