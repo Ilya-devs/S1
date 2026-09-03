@@ -9,6 +9,7 @@ interface AuthState {
   loading: boolean
   error: string | null
   signIn: (email: string, password: string) => Promise<{ error: string | null }>
+  signUp: (email: string, password: string, fullName: string) => Promise<{ error: string | null; needsEmailConfirmation: boolean }>
   signOut: () => Promise<void>
 }
 
@@ -106,12 +107,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: signInError?.message ?? null }
   }
 
+  async function signUp(email: string, password: string, fullName: string) {
+    if (!isSupabaseConfigured) {
+      return { error: 'إعدادات Supabase غير مكتملة. راجع إعدادات Cloudflare Pages.', needsEmailConfirmation: false }
+    }
+
+    const normalizedEmail = email.trim().toLowerCase()
+    const trimmedName = fullName.trim()
+
+    if (!normalizedEmail || !trimmedName) {
+      return { error: 'أدخل الاسم والبريد الإلكتروني.', needsEmailConfirmation: false }
+    }
+
+    const { data, error: signUpError } = await supabase.auth.signUp({
+      email: normalizedEmail,
+      password,
+      options: { data: { full_name: trimmedName } },
+    })
+
+    if (signUpError) {
+      return { error: signUpError.message, needsEmailConfirmation: false }
+    }
+
+    return {
+      error: null,
+      needsEmailConfirmation: !data.session,
+    }
+  }
+
   async function signOut() {
     await supabase.auth.signOut()
   }
 
   return (
-    <AuthContext.Provider value={{ session, profile, loading, error, signIn, signOut }}>
+    <AuthContext.Provider value={{ session, profile, loading, error, signIn, signUp, signOut }}>
       {children}
     </AuthContext.Provider>
   )

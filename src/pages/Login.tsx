@@ -1,10 +1,21 @@
 import { useState, type FormEvent } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { Button } from '@/components/ui/Button'
 import { Input, Label, Card } from '@/components/ui/primitives'
 
+function toArabicAuthError(message: string) {
+  const m = message.toLowerCase()
+  if (m.includes('invalid login credentials')) return 'البريد الإلكتروني أو كلمة المرور غير صحيحة.'
+  if (m.includes('email not confirmed')) return 'يجب تأكيد البريد الإلكتروني أولاً. تحقق من صندوق الوارد.'
+  if (m.includes('too many requests')) return 'تم تجاوز عدد المحاولات. انتظر قليلاً ثم حاول مرة أخرى.'
+  if (m.includes('network') || m.includes('fetch')) return 'تعذر الاتصال بالخادم. تحقق من الإنترنت وحاول مرة أخرى.'
+  return `تعذر تسجيل الدخول: ${message}`
+}
+
 export default function Login() {
   const { signIn } = useAuth()
+  const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -14,8 +25,16 @@ export default function Login() {
     e.preventDefault()
     setLoading(true)
     setError(null)
-    const { error } = await signIn(email, password)
-    if (error) setError('البريد الإلكتروني أو كلمة المرور غير صحيحة')
+    const result = await signIn(email.trim(), password)
+    if (result.error) {
+      setError(toArabicAuthError(result.error))
+      setLoading(false)
+      return
+    }
+
+    // AuthContext updates the session; navigate explicitly because /login
+    // otherwise remains mounted after a successful sign-in.
+    navigate('/', { replace: true })
     setLoading(false)
   }
 
@@ -60,6 +79,11 @@ export default function Login() {
             </Button>
           </form>
         </Card>
+
+        <p className="mt-4 text-center text-sm text-ink-500">
+          ليس لديك حساب؟{' '}
+          <Link to="/register" className="text-brass-500 hover:underline">إنشاء حساب جديد</Link>
+        </p>
 
         <p className="mt-6 text-center text-[11px] text-ink-600">
           جميع الحقوق محفوظة —{' '}

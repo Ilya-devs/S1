@@ -208,3 +208,13 @@ Set them in Cloudflare Pages under the environment used by the production build,
 ## النشر الآلي من GitHub إلى Cloudflare
 
 ملف GitHub Actions موجود في `.github/workflows/cloudflare-pages.yml`. تفاصيل إعداد الأسرار وCloudflare في `CLOUDFLARE-GITHUB.md`.
+
+
+## Supabase migrations
+
+Apply migrations in this order:
+1. `supabase/migrations/0001_init.sql`
+2. `supabase/migrations/0002_hardening.sql`
+3. `supabase/migrations/0003_auth_profile_provisioning.sql`
+
+Migration 0003 automatically creates an active `profiles` row for every new Supabase Auth user and backfills existing Auth users that are missing a profile. The first application user is assigned `owner`; subsequent self-registered users are `viewer` until an owner/admin changes their role.

@@ -5,6 +5,7 @@ import { AuthProvider } from '@/context/AuthContext'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { ResponsiveShell } from '@/layouts/ResponsiveShell'
 import Login from '@/pages/Login'
+import Register from '@/pages/Register'
 import { StartupScreen } from '@/components/StartupScreen'
 import { isSupabaseConfigured } from '@/lib/supabase'
 
@@ -49,6 +50,7 @@ export default function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
             <Route
               element={
                 <ProtectedRoute>
