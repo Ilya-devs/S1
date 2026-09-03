@@ -54,7 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!isSupabaseConfigured) {
         if (mounted) {
           setLoading(false)
-          setError('إعدادات Supabase غير موجودة في نسخة الإنتاج. تأكد من VITE_SUPABASE_URL و VITE_SUPABASE_ANON_KEY في Cloudflare Pages ثم أعد النشر.')
+          setError('تعذر تهيئة اتصال Supabase. تحقق من اتصال الشبكة وإعدادات مشروع Supabase.')
         }
         return
       }
@@ -100,7 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function signIn(email: string, password: string) {
     if (!isSupabaseConfigured) {
-      return { error: 'إعدادات Supabase غير مكتملة. راجع إعدادات Cloudflare Pages.' }
+      return { error: 'إعدادات اتصال Supabase غير متاحة.' }
     }
 
     const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
@@ -109,7 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function signUp(email: string, password: string, fullName: string) {
     if (!isSupabaseConfigured) {
-      return { error: 'إعدادات Supabase غير مكتملة. راجع إعدادات Cloudflare Pages.', needsEmailConfirmation: false }
+      return { error: 'إعدادات اتصال Supabase غير متاحة.', needsEmailConfirmation: false }
     }
 
     const normalizedEmail = email.trim().toLowerCase()
