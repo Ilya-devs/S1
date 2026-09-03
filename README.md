@@ -181,3 +181,30 @@ VITE_SUPABASE_ANON_KEY
 These values must be configured for the Cloudflare Pages environment that performs the production build, then a new deployment must be created. `VITE_*` values are embedded into the frontend during the Vite build.
 
 If the variables are missing or malformed, the app intentionally shows a diagnostic screen instead of failing with a blank page.
+
+## Cloudflare Pages deployment
+
+This repository is a Vite/React application. Cloudflare Pages must build the source before publishing it.
+
+Use these Git integration settings:
+
+- Production branch: `main`
+- Root directory: `/`
+- Build command: `npm run build` (or `bash build.sh`)
+- Build output directory: `dist`
+
+`wrangler.jsonc` declares `dist` as the Pages output directory. The dashboard still needs a build command for Git-integrated Pages deployments.
+
+For this application, publishing the repository root without running Vite is not a valid deployment: `index.html` references `/src/main.tsx`, which is source code and must be transformed by Vite into the files under `dist/`.
+
+Required build environment variables:
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+
+Set them in Cloudflare Pages under the environment used by the production build, then create a new deployment.
+
+
+## النشر الآلي من GitHub إلى Cloudflare
+
+ملف GitHub Actions موجود في `.github/workflows/cloudflare-pages.yml`. تفاصيل إعداد الأسرار وCloudflare في `CLOUDFLARE-GITHUB.md`.
