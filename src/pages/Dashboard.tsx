@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { asArray } from '@/lib/collections'
 import { LineChart, Line, ResponsiveContainer, XAxis, Tooltip } from 'recharts'
 import { Wallet, TrendingUp, TrendingDown, PackageX } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -38,12 +39,12 @@ export default function Dashboard() {
             .eq('status', 'confirmed'),
         ])
 
-      const todayTotal = (todaySales.data ?? []).reduce((s, r) => s + Number(r.total_iqd), 0)
-      const totalReceivable = (customerBalances.data ?? []).reduce(
+      const todayTotal = asArray(todaySales.data).reduce((s, r) => s + Number(r.total_iqd), 0)
+      const totalReceivable = asArray(customerBalances.data).reduce(
         (s, r) => s + Math.max(0, Number(r.balance_iqd)),
         0
       )
-      const totalPayable = (supplierBalances.data ?? []).reduce(
+      const totalPayable = asArray(supplierBalances.data).reduce(
         (s, r) => s + Math.max(0, Number(r.balance_iqd)),
         0
       )
@@ -127,7 +128,7 @@ export default function Dashboard() {
         <Card className="p-5">
           <p className="mb-4 text-sm font-medium text-ink-300">آخر الفواتير</p>
           <div className="space-y-3">
-            {(data?.recentInvoices ?? []).map((inv) => (
+            {asArray(data?.recentInvoices).map((inv) => (
               <div key={inv.id} className="flex items-center justify-between text-sm">
                 <div>
                   <p className="text-ink-200">{extractName(inv.customers) ?? 'زبون نقدي'}</p>

@@ -43,9 +43,9 @@ git push -u origin main
 
 ---
 
-## 3) النشر على Cloudflare Pages وإضافة الأسرار (Secrets)
+## 3) النشر على Cloudflare Pages ومتغيرات البناء
 
-هذه هي الطريقة الصحيحة لإضافة رابط ومفتاح Supabase **كأسرار** بدل كتابتها داخل الكود:
+متغيرات Supabase مفيدة للبناء، لكن `VITE_*` تصل إلى المتصفح في النهاية. لا تضع أي secret/service-role key فيها. المشروع يحتوي fallback عام لمفتاح publishable.
 
 ### الطريقة أ — من واجهة Cloudflare (الأسهل)
 
@@ -71,27 +71,9 @@ git push -u origin main
 > غير مسجّل دخول أو غير نشط من قراءة أو تعديل بياناتك، حتى لو رأى المفتاح.
 > **لا تستخدم أبداً** مفتاح `service_role` في الواجهة الأمامية — هو فقط للاستخدام في السيرفر.
 
-### الطريقة ب — عبر سطر الأوامر (Wrangler CLI)
+### ملاحظة أمنية
 
-```bash
-npm install -g wrangler
-wrangler login
-
-# إضافة الأسرار لمشروع Pages موجود مسبقاً
-wrangler pages secret put VITE_SUPABASE_URL --project-name=ilya-accounting
-wrangler pages secret put VITE_SUPABASE_ANON_KEY --project-name=ilya-accounting
-```
-
-سيطلب منك إدخال القيمة في الطرفية (Terminal) مباشرة، ولن تظهر في أي مكان مكتوب بالكود.
-
-### النشر اليدوي (بدون ربط Git) — بديل سريع
-
-```bash
-npm run build
-npx wrangler pages deploy dist --project-name=ilya-accounting
-```
-
----
+`VITE_SUPABASE_URL` و`VITE_SUPABASE_ANON_KEY`/publishable key ليست مكاناً للأسرار الحقيقية؛ Vite يضمّن `VITE_*` في JavaScript النهائي. الأمان الحقيقي في Supabase Auth وRLS. لا تستخدم `service_role` أو `sb_secret_*` في المتصفح.
 
 ## 4) التطوير محلياً
 
@@ -148,14 +130,15 @@ stock_movements، devices) وتحتاج فقط واجهة إضافية عند ا
 
 ## Supabase migration order
 
-The database in this repository uses ordered migrations:
+The database uses ordered migrations:
 
-1. `supabase/migrations/0001_init.sql` — initial schema.
-2. `supabase/migrations/0002_hardening.sql` — security/data-integrity hardening for an existing `0001` database.
+1. `0001_init.sql` — legacy/base accounting schema.
+2. `0002_hardening.sql` — stock and data-integrity hardening.
+3. `0003_auth_profile_provisioning.sql` — Auth profile provisioning.
+4. `0004_multitenant_saas.sql` — organization isolation, memberships, workspace switching and tenant RLS.
+5. `0005_atomic_operations.sql` — atomic financial operations, stock adjustments, debt-payment validation and audit triggers.
 
-If `0001_init.sql` was already applied, **do not run it again**. Run only `0002_hardening.sql`.
-
-`0002_hardening.sql` uses idempotent policy/constraint handling and does not drop business data.
+If `0001` is already applied, **do not run it again**. Apply only the missing migrations in order. `0004` migrates existing data into a legacy organization; it does not intentionally delete business data.
 
 ## Cloudflare Pages
 
@@ -217,4 +200,42 @@ Apply migrations in this order:
 2. `supabase/migrations/0002_hardening.sql`
 3. `supabase/migrations/0003_auth_profile_provisioning.sql`
 
-Migration 0003 automatically creates an active `profiles` row for every new Supabase Auth user and backfills existing Auth users that are missing a profile. The first application user is assigned `owner`; subsequent self-registered users are `viewer` until an owner/admin changes their role.
+Migration 0003 is retained for compatibility. Migration 0004 supersedes its signup behavior: every new Auth user gets a private organization and `owner` membership automatically. Existing data is assigned to a legacy organization and protected by tenant RLS.
+
+
+## Public SaaS model
+
+ILYA is now designed as a multi-tenant application:
+
+```text
+Auth user
+  └── organization_members
+        └── organization
+              ├── settings
+              ├── customers / suppliers
+              ├── products / stock
+              ├── sales / purchases
+              ├── returns / debts / expenses
+              └── audit log
+```
+
+Every tenant-owned row has `organization_id`. RLS requires active membership in the current organization, while a database trigger prevents a browser from choosing a different tenant on insert/update.
+
+The UI provides workspace switching, workspace creation, employee invitations and role management. Invitation tokens are random and stored only as SHA-256 hashes in the database.
+
+Financial writes for sales, purchases, returns, debt payments, product creation and stock adjustments are executed through security-definer PostgreSQL functions so multi-step operations are atomic and cannot leave orphan invoice headers when an item/stock operation fails.
+
+## Public client configuration
+
+The project includes the Supabase URL and publishable browser key as a fallback in `src/lib/supabase.ts`. This is intentional: publishable keys are not secrets. Never place `service_role`, `sb_secret_*`, database passwords, or other privileged credentials in `VITE_*` variables or frontend code.
+
+
+## v9 UI / performance hardening
+
+- Fixed navigation to use stable fixed desktop/tablet rails and fixed mobile header/bottom navigation.
+- Added responsive touch targets, safe-area spacing, text wrapping/truncation rules, and reduced-motion support.
+- Added system/light/dark themes with separate `src/themes/light.css` and `src/themes/dark.css`, persisted preference, and OS theme change detection.
+- Hardened collection rendering with `asArray()` so unexpected API response shapes cannot crash `.map()`/`.filter()` rendering.
+- Added paginated backup export (bounded per-table) and validated backup format, store ownership, SHA-256 integrity, and hashed restore code.
+- Restore is an explicit owner-only merge/upsert and intentionally does not delete current rows.
+- Repaired migration 0004 legacy UNIQUE constraint handling; 0005 now fails with a clear migration-order error if 0004 has not completed.

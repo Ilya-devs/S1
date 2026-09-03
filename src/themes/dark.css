@@ -1,0 +1,4 @@
+/* ILYA dark theme — loaded once and activated through .theme-dark */
+.theme-dark {
+  color-scheme: dark;
+}

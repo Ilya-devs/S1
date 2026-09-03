@@ -37,6 +37,7 @@ export const navItems: NavItem[] = [
 export const mobileTabItems: NavItem[] = [
   { to: '/', label: 'الرئيسية', icon: LayoutDashboard },
   { to: '/sales', label: 'المبيعات', icon: ShoppingCart },
+  { to: '/products', label: 'المخزون', icon: Package },
   { to: '/customers', label: 'الزبائن', icon: Users },
   { to: '/debts', label: 'الديون', icon: Wallet },
 ]

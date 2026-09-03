@@ -1,0 +1,28 @@
+/* ILYA light theme — same semantic palette, readable in bright environments. */
+.theme-light {
+  color-scheme: light;
+  --color-ink-950: #f5f6f8;
+  --color-ink-900: #ffffff;
+  --color-ink-850: #f0f2f5;
+  --color-ink-800: #e5e8ed;
+  --color-ink-700: #d5dae2;
+  --color-ink-600: #b7bec9;
+  --color-ink-500: #7a8492;
+  --color-ink-400: #5c6675;
+  --color-ink-300: #3f4855;
+  --color-ink-200: #27303b;
+  --color-ink-100: #18202a;
+  --color-ink-50: #0d131a;
+  --color-brass-300: #8a6812;
+  --color-brass-400: #9b7614;
+  --color-brass-500: #b28716;
+  --color-brass-600: #946e0f;
+  --color-brass-700: #76570c;
+  --color-emerald-500: #18794e;
+  --color-emerald-400: #15804d;
+  --color-crimson-500: #b3262e;
+  --color-crimson-400: #c33a42;
+  --color-amber-500: #9a650b;
+  --shadow-panel: 0 1px 0 0 rgba(0,0,0,0.04) inset, 0 16px 36px -24px rgba(0,0,0,0.22);
+  --shadow-glow-brass: 0 0 0 1px rgba(178,135,22,0.18), 0 8px 24px -12px rgba(178,135,22,0.18);
+}

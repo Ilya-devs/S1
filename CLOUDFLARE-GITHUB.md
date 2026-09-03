@@ -1,70 +1,83 @@
-# GitHub → Cloudflare Pages
+# GitHub + Cloudflare Pages
 
-این پروژه برای استقرار Production از شاخه `main` توسط GitHub Actions آماده شده است.
+ILYA uses the repository connection already configured in Cloudflare Pages.
 
-## GitHub Secrets المطلوبة
+## GitHub Actions
 
-من مستودع GitHub:
+The workflow at `.github/workflows/cloudflare-pages.yml` is **verification only**.
 
-**Settings → Secrets and variables → Actions → New repository secret**
+It:
+1. checks out `main`;
+2. installs exact lockfile dependencies with `npm ci`;
+3. supplies only the two Supabase build variables;
+4. deletes `dist`;
+5. runs `npm run build`;
+6. verifies `dist/index.html`.
 
-أضف:
+It does **not** upload to Cloudflare and does not require any Cloudflare token.
+
+### GitHub Secrets
+
+Only:
 
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
-- ~~`CLOUDFLARE_API_TOKEN`~~
-- ~~`CLOUDFLARE_ACCOUNT_ID`~~
 
-يجب أن يكون ~~`CLOUDFLARE_API_TOKEN`~~ مخصصاً للحساب ويملك صلاحية **Pages Write**.
+## Cloudflare Pages
 
-> لا تضع `service_role` الخاص بـ Supabase في GitHub Secrets الخاصة بالواجهة الأمامية أو داخل الكود.
+Cloudflare is connected directly to `Ilya-devs/S1`.
 
-## طريقة العمل
+Use:
 
-عند كل `push` إلى `main`:
+- Production branch: `main`
+- Root directory: `/`
+- Build command: `npm run build`
+- Build output directory: `dist`
 
-1. GitHub يسحب آخر commit فقط.
-2. يستخدم Node `22.16.0`.
-3. ينفذ `npm ci` من `package-lock.json`.
-4. يحذف `dist` القديم.
-5. ينفذ `npm run build`.
-6. يتأكد من وجود `dist/index.html`.
-7. يرفع **dist فقط** إلى مشروع Cloudflare Pages `s1`.
-8. يرسل SHA الخاص بالـ commit إلى Cloudflare.
+Cloudflare must also have these two variables under the **Production build environment**:
 
-لا يتم رفع `node_modules` أو ملفات المصدر كملفات الموقع النهائي، ولا يتم إنشاء GitHub artifact قديم.
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
 
-## مهم جداً في Cloudflare
+They are build-time client configuration. Never put a Supabase secret/service-role key in either variable.
 
-هذه الطريقة تستخدم **GitHub Actions + Wrangler Direct Upload** كمسار النشر.
+## Deployment flow
 
-لمنع نشرين متوازيين أو نسخ Preview غير مرغوبة:
-
-- عطّل **Automatic deployments** من Cloudflare Pages إذا كان المشروع مربوطاً بـ GitHub Cloudflare Integration.
-- اترك GitHub Actions هو المسؤول عن Production.
-- Production branch = `main`.
-- لا تنفذ `wrangler pages deploy` من جهاز آخر أثناء النشر الآلي.
-
-Cloudflare يحتفظ بسجل deployments في لوحة التحكم لأغراض التتبع والرجوع، وهذا مختلف عن أن تكون النسخة القديمة هي النسخة التي يخدمها الدومين. الـ Production deployment الذي ينشره هذا الـ workflow يكون على `main`.
-
-## تشغيل يدوي
-
-من GitHub:
-
-**Actions → Build and Deploy to Cloudflare Pages → Run workflow**
-
-ويمكن أيضاً تشغيله تلقائياً بمجرد:
-
-```bash
-git push origin main
+```text
+push main
+   │
+   ├── GitHub Actions → build verification
+   │
+   └── Cloudflare Git Integration
+          ├── install
+          ├── build
+          └── deploy dist
 ```
 
+Do not configure a second Wrangler/Direct Upload deployment path. Keeping one production deployer avoids duplicate deployments and version confusion.
 
-## ملاحظة عن Cloudflare المتصل بالمستودع
+Cloudflare may retain historical deployment records for audit/rollback; this does not mean the old deployment is serving production.
 
-هذا المشروع لا يحتاج `CLOUDFLARE_API_TOKEN` أو `CLOUDFLARE_ACCOUNT_ID` في GitHub Actions. النشر إلى Cloudflare Pages يتم تلقائياً من اتصال Cloudflare بالمستودع. GitHub Actions هنا يبني نسخة Production ويتحقق منها فقط، ويحتاج فقط أسرار Supabase:
+## Recovery from a failed build
 
-- `VITE_SUPABASE_URL`
-- `VITE_SUPABASE_ANON_KEY`
+If Cloudflare says:
 
-ويجب أن تكون قيم Supabase نفسها موجودة أيضاً في Environment Variables الخاصة بـ Cloudflare Pages، لأن Cloudflare ينفذ build خاصاً به عند وصول push إلى `main`.
+```text
+No build command specified
+```
+
+set the dashboard Build command to:
+
+```text
+npm run build
+```
+
+If it says:
+
+```text
+Output directory "dist" not found
+```
+
+the build did not run or failed before producing `dist`.
+
+If the build reports missing `VITE_*` variables, check the **Production** variables in Cloudflare and create a new deployment after saving them.

@@ -57,6 +57,7 @@ jobs:
 
           rm -rf dist
           npm run build
+          npm run verify:build
 
           test -f dist/index.html || {
             echo "::error::dist/index.html was not generated."

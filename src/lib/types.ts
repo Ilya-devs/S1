@@ -1,5 +1,26 @@
 export type UserRole = 'owner' | 'admin' | 'accountant' | 'cashier' | 'viewer'
 
+
+export interface Organization {
+  id: string
+  name: string
+  slug: string
+  owner_id: string
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface OrganizationMembership {
+  organization_id: string
+  user_id: string
+  role: UserRole
+  is_active: boolean
+  joined_at: string
+  updated_at: string
+  organization?: Organization
+}
+
 export interface Profile {
   id: string
   full_name: string
@@ -7,6 +28,7 @@ export interface Profile {
   is_active: boolean
   phone: string | null
   avatar_url: string | null
+  active_organization_id: string | null
 }
 
 export interface Customer {

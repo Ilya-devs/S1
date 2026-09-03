@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { asArray } from '@/lib/collections'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2, Search } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -60,7 +61,7 @@ export default function Purchases() {
                   </td>
                 </tr>
               )}
-              {(invoices ?? []).map((inv) => (
+              {asArray(invoices).map((inv) => (
                 <tr key={inv.id} className="border-b border-ink-850 last:border-0 hover:bg-ink-850/50">
                   <td className="px-4 py-3 text-ink-100" dir="ltr">
                     {inv.invoice_number}
@@ -130,7 +131,7 @@ function NewPurchaseModal({
   const { data: suppliers } = useQuery({
     queryKey: ['suppliers-lite'],
     queryFn: async () => {
-      const { data } = await supabase.from('suppliers').select('id, name').eq('is_active', true).order('name')
+      const { data } = await supabase.from('suppliers').select('id, name').eq('is_active', true).order('name').limit(500)
       return (data ?? []) as Pick<Supplier, 'id' | 'name'>[]
     },
     enabled: open,
@@ -139,14 +140,14 @@ function NewPurchaseModal({
   const { data: products } = useQuery({
     queryKey: ['products-lite-purchase'],
     queryFn: async () => {
-      const { data } = await supabase.from('products').select('*').eq('is_active', true).order('name')
+      const { data } = await supabase.from('products').select('*').eq('is_active', true).order('name').limit(500)
       return (data ?? []) as Product[]
     },
     enabled: open,
   })
 
   const filteredProducts = useMemo(
-    () => (products ?? []).filter((p) => p.name.includes(productSearch)).slice(0, 8),
+    () => asArray(products).filter((p) => p.name.includes(productSearch)).slice(0, 8),
     [products, productSearch]
   )
 
@@ -190,29 +191,21 @@ function NewPurchaseModal({
     setSaving(true)
     try {
       const paid = paymentMethod === 'cash' ? total : paymentMethod === 'credit' ? 0 : Math.round(Number(paidAmount) || 0)
-      const { data: invoice, error: invErr } = await supabase
-        .from('purchase_invoices')
-        .insert({
-          invoice_number: generateInvoiceNumber('PUR'),
-          supplier_id: supplierId || null,
-          payment_method: paymentMethod,
-          subtotal_iqd: total,
-          total_iqd: total,
-          paid_iqd: paid,
-          created_by: userId,
-        })
-        .select('id')
-        .single()
-      if (invErr) throw invErr
-
-      const items = cart.map((l) => ({
-        invoice_id: invoice.id,
-        product_id: l.product_id,
-        quantity: l.quantity,
-        unit_cost_iqd: l.unit_price_iqd,
-      }))
-      const { error: itemsErr } = await supabase.from('purchase_invoice_items').insert(items)
-      if (itemsErr) throw itemsErr
+      const { error: rpcErr } = await supabase.rpc('create_purchase_invoice', {
+        p_invoice_number: generateInvoiceNumber('PUR'),
+        p_supplier_id: supplierId || null,
+        p_payment_method: paymentMethod,
+        p_discount_iqd: 0,
+        p_paid_iqd: paid,
+        p_notes: null,
+        p_client_local_id: crypto.randomUUID(),
+        p_items: cart.map((l) => ({
+          product_id: l.product_id,
+          quantity: l.quantity,
+          unit_cost_iqd: l.unit_price_iqd,
+        })),
+      })
+      if (rpcErr) throw rpcErr
 
       reset()
       onSaved()
@@ -254,7 +247,7 @@ function NewPurchaseModal({
               onChange={(e) => setSupplierId(e.target.value)}
             >
               <option value="">اختر مورد...</option>
-              {(suppliers ?? []).map((s) => (
+              {asArray(suppliers).map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
                 </option>

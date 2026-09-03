@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#0a0a0a" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -21,6 +21,21 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // Apply the saved/system theme before React loads to avoid a light/dark flash.
+      (function () {
+        try {
+          var saved = localStorage.getItem('ilya-theme');
+          var mode = saved === 'light' || saved === 'dark' ? saved : 'system';
+          var light = mode === 'light' || (mode === 'system' && window.matchMedia('(prefers-color-scheme: light)').matches);
+          document.documentElement.classList.toggle('theme-light', light);
+          document.documentElement.classList.toggle('theme-dark', !light);
+          document.documentElement.style.colorScheme = light ? 'light' : 'dark';
+        } catch (_) {
+          document.documentElement.classList.add('theme-dark');
+        }
+      })();
+    </script>
     <script>
       // Recover users from a broken/stale PWA service worker after deployments.
       // This runs before the React bundle and only reloads once per browser session.

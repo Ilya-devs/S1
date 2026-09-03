@@ -14,12 +14,13 @@ function toArabicAuthError(message: string) {
 }
 
 export default function Login() {
-  const { signIn } = useAuth()
+  const { signIn, acceptInvitation, resendConfirmation } = useAuth()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [resending, setResending] = useState(false)
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -32,8 +33,16 @@ export default function Login() {
       return
     }
 
-    // AuthContext updates the session; navigate explicitly because /login
-    // otherwise remains mounted after a successful sign-in.
+    const pendingInvite = localStorage.getItem('ilya_pending_invitation')
+    if (pendingInvite) {
+      const inviteResult = await acceptInvitation(pendingInvite)
+      if (inviteResult.error) {
+        setError(`تم تسجيل الدخول، لكن تعذر قبول الدعوة: ${inviteResult.error}`)
+        setLoading(false)
+        return
+      }
+      localStorage.removeItem('ilya_pending_invitation')
+    }
     navigate('/', { replace: true })
     setLoading(false)
   }
@@ -73,7 +82,25 @@ export default function Login() {
                 placeholder="••••••••"
               />
             </div>
-            {error && <p className="text-xs text-crimson-400">{error}</p>}
+            {error && <p role="alert" className="text-xs text-crimson-400">{error}</p>}
+            {error?.includes('تأكيد البريد') && (
+              <button
+                type="button"
+                disabled={resending || !email.trim()}
+                onClick={async () => {
+                  setResending(true)
+                  const result = await resendConfirmation(email)
+                  setError(result.error ? result.error : 'تم إرسال رسالة تأكيد جديدة.')
+                  setResending(false)
+                }}
+                className="text-xs text-brass-400 hover:underline disabled:opacity-50"
+              >
+                {resending ? 'جارٍ إعادة الإرسال...' : 'إعادة إرسال رسالة التأكيد'}
+              </button>
+            )}
+            <div className="text-left">
+              <Link to="/forgot-password" className="text-xs text-brass-400 hover:underline">نسيت كلمة المرور؟</Link>
+            </div>
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? 'جارٍ الدخول...' : 'تسجيل الدخول'}
             </Button>

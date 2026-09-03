@@ -2,18 +2,17 @@ import { useState } from 'react'
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
 import { Search, Wallet } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { useAuth } from '@/context/AuthContext'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Card, Input, Label, Badge } from '@/components/ui/primitives'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { formatIQD } from '@/lib/format'
+import { asArray } from '@/lib/collections'
 
 type Tab = 'customers' | 'suppliers'
 
 export default function Debts() {
   const qc = useQueryClient()
-  const { profile } = useAuth()
   const [tab, setTab] = useState<Tab>('customers')
   const [search, setSearch] = useState('')
   const [payTarget, setPayTarget] = useState<{ id: string; name: string; balance: number } | null>(null)
@@ -43,17 +42,14 @@ export default function Debts() {
       if (!payTarget) return
       const value = Math.round(Number(amount) || 0)
       if (value <= 0) throw new Error('أدخل مبلغاً صحيحاً')
-      const payload: {
-        direction: 'from_customer' | 'to_supplier'
-        customer_id: string | null
-        supplier_id: string | null
-        amount_iqd: number
-        created_by: string | undefined
-      } =
-        tab === 'customers'
-          ? { direction: 'from_customer', customer_id: payTarget.id, supplier_id: null, amount_iqd: value, created_by: profile?.id }
-          : { direction: 'to_supplier', customer_id: null, supplier_id: payTarget.id, amount_iqd: value, created_by: profile?.id }
-      const { error } = await supabase.from('debt_payments').insert(payload)
+      const { error } = await supabase.rpc('record_debt_payment', {
+        p_direction: tab === 'customers' ? 'from_customer' : 'to_supplier',
+        p_customer_id: tab === 'customers' ? payTarget.id : null,
+        p_supplier_id: tab === 'suppliers' ? payTarget.id : null,
+        p_amount_iqd: value,
+        p_method: 'cash',
+        p_note: null,
+      })
       if (error) throw error
     },
     onSuccess: () => {
@@ -67,8 +63,8 @@ export default function Debts() {
 
   const rows =
     tab === 'customers'
-      ? (customerBalances ?? []).map((r) => ({ id: r.customer_id as string, name: r.name as string, balance: Number(r.balance_iqd) }))
-      : (supplierBalances ?? []).map((r) => ({ id: r.supplier_id as string, name: r.name as string, balance: Number(r.balance_iqd) }))
+      ? asArray(customerBalances).map((r) => ({ id: r.customer_id as string, name: r.name as string, balance: Number(r.balance_iqd) }))
+      : asArray(supplierBalances).map((r) => ({ id: r.supplier_id as string, name: r.name as string, balance: Number(r.balance_iqd) }))
 
   const filtered = rows.filter((r) => r.name.includes(search) && r.balance !== 0)
   const isLoading = tab === 'customers' ? loadingCustomers : loadingSuppliers

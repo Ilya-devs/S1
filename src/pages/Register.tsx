@@ -15,7 +15,7 @@ function toArabicAuthError(message: string) {
 }
 
 export default function Register() {
-  const { signUp } = useAuth()
+  const { signUp, acceptInvitation } = useAuth()
   const navigate = useNavigate()
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
@@ -58,6 +58,17 @@ export default function Register() {
       return
     }
 
+    const params = new URLSearchParams(window.location.search)
+    const inviteToken = params.get('invite') || localStorage.getItem('ilya_pending_invitation')
+    if (inviteToken) {
+      const inviteResult = await acceptInvitation(inviteToken)
+      if (inviteResult.error) {
+        // Keep the token so the user can retry from Login after email confirmation.
+        localStorage.setItem('ilya_pending_invitation', inviteToken)
+      } else {
+        localStorage.removeItem('ilya_pending_invitation')
+      }
+    }
     navigate('/', { replace: true })
     setLoading(false)
   }

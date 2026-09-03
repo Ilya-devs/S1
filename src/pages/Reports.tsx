@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { asArray } from '@/lib/collections'
 import { useQuery } from '@tanstack/react-query'
 import { BarChart, Bar, ResponsiveContainer, XAxis, Tooltip } from 'recharts'
 import { supabase } from '@/lib/supabase'
@@ -23,23 +24,35 @@ export default function Reports() {
       const fromISO = new Date(from).toISOString()
       const toISO = new Date(new Date(to).getTime() + 86400000).toISOString()
 
-      const [sales, purchases, expenses, salesReturns, purchaseReturns] = await Promise.all([
-        supabase.from('sales_invoices').select('total_iqd, created_at').gte('created_at', fromISO).lt('created_at', toISO).eq('status', 'confirmed'),
+      const [sales, purchases, expenses, salesReturns, purchaseReturns, saleItems, salesReturnItems] = await Promise.all([
+        supabase.from('sales_invoices').select('id, total_iqd, created_at').gte('created_at', fromISO).lt('created_at', toISO).eq('status', 'confirmed'),
         supabase.from('purchase_invoices').select('total_iqd, created_at').gte('created_at', fromISO).lt('created_at', toISO).eq('status', 'confirmed'),
         supabase.from('expenses').select('amount_iqd, spent_at').gte('spent_at', from).lte('spent_at', to),
         supabase.from('sales_returns').select('total_iqd, created_at').gte('created_at', fromISO).lt('created_at', toISO),
         supabase.from('purchase_returns').select('total_iqd, created_at').gte('created_at', fromISO).lt('created_at', toISO),
+        supabase.from('sales_invoice_items').select('invoice_id, quantity, unit_cost_iqd, sales_invoices!inner(status,created_at)').eq('sales_invoices.status', 'confirmed').gte('sales_invoices.created_at', fromISO).lt('sales_invoices.created_at', toISO),
+        supabase.from('sales_return_items').select('quantity, unit_cost_iqd, sales_returns!inner(created_at)').gte('sales_returns.created_at', fromISO).lt('sales_returns.created_at', toISO),
       ])
+      if (sales.error) throw sales.error
+      if (purchases.error) throw purchases.error
+      if (expenses.error) throw expenses.error
+      if (salesReturns.error) throw salesReturns.error
+      if (purchaseReturns.error) throw purchaseReturns.error
+      if (saleItems.error) throw saleItems.error
+      if (salesReturnItems.error) throw salesReturnItems.error
 
-      const salesTotal = (sales.data ?? []).reduce((s, r) => s + Number(r.total_iqd), 0)
-      const purchasesTotal = (purchases.data ?? []).reduce((s, r) => s + Number(r.total_iqd), 0)
-      const expensesTotal = (expenses.data ?? []).reduce((s, r) => s + Number(r.amount_iqd), 0)
-      const salesReturnsTotal = (salesReturns.data ?? []).reduce((s, r) => s + Number(r.total_iqd), 0)
-      const purchaseReturnsTotal = (purchaseReturns.data ?? []).reduce((s, r) => s + Number(r.total_iqd), 0)
+      const salesTotal = asArray(sales.data).reduce((s, r) => s + Number(r.total_iqd), 0)
+      const purchasesTotal = asArray(purchases.data).reduce((s, r) => s + Number(r.total_iqd), 0)
+      const expensesTotal = asArray(expenses.data).reduce((s, r) => s + Number(r.amount_iqd), 0)
+      const salesReturnsTotal = asArray(salesReturns.data).reduce((s, r) => s + Number(r.total_iqd), 0)
+      const purchaseReturnsTotal = asArray(purchaseReturns.data).reduce((s, r) => s + Number(r.total_iqd), 0)
 
       const netSales = salesTotal - salesReturnsTotal
       const netPurchases = purchasesTotal - purchaseReturnsTotal
-      const grossProfit = netSales - netPurchases
+      const soldCogs = asArray(saleItems.data).reduce((s, r) => s + Number(r.quantity) * Number(r.unit_cost_iqd), 0)
+      const returnedCogs = asArray(salesReturnItems.data).reduce((s, r) => s + Number(r.quantity) * Number(r.unit_cost_iqd), 0)
+      const cogs = Math.max(0, soldCogs - returnedCogs)
+      const grossProfit = netSales - cogs
       const netProfit = grossProfit - expensesTotal
 
       const byDay = new Map<string, { sales: number; purchases: number }>()
@@ -55,7 +68,7 @@ export default function Reports() {
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([date, v]) => ({ date: date.slice(5), ...v }))
 
-      return { salesTotal, purchasesTotal, expensesTotal, salesReturnsTotal, purchaseReturnsTotal, netSales, netPurchases, grossProfit, netProfit, chartData }
+      return { salesTotal, purchasesTotal, expensesTotal, salesReturnsTotal, purchaseReturnsTotal, netSales, netPurchases, cogs, grossProfit, netProfit, chartData }
     },
   })
 
@@ -74,9 +87,10 @@ export default function Reports() {
         </div>
       </Card>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
         <StatCard label="صافي المبيعات" value={isLoading ? '...' : formatIQD(data?.netSales ?? 0)} tone="brass" />
         <StatCard label="صافي المشتريات" value={isLoading ? '...' : formatIQD(data?.netPurchases ?? 0)} tone="neutral" />
+        <StatCard label="تكلفة البضاعة المباعة" value={isLoading ? '...' : formatIQD(data?.cogs ?? 0)} tone="neutral" />
         <StatCard label="المصاريف" value={isLoading ? '...' : formatIQD(data?.expensesTotal ?? 0)} tone="danger" />
         <StatCard
           label="صافي الربح"

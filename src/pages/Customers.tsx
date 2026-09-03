@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { asArray } from '@/lib/collections'
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
 import { Plus, Search, Phone } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -18,7 +19,7 @@ export default function Customers() {
   const { data: customers, isLoading } = useQuery({
     queryKey: ['customers'],
     queryFn: async () => {
-      const { data } = await supabase.from('customers').select('*').eq('is_active', true).order('name')
+      const { data } = await supabase.from('customers').select('*').eq('is_active', true).order('name').limit(500)
       return (data ?? []) as Customer[]
     },
   })
@@ -27,7 +28,7 @@ export default function Customers() {
     queryKey: ['customer_balances'],
     queryFn: async () => {
       const { data } = await supabase.from('customer_balances').select('*')
-      return new Map((data ?? []).map((b) => [b.customer_id, Number(b.balance_iqd)]))
+      return new Map(asArray(data).map((b) => [b.customer_id, Number(b.balance_iqd)]))
     },
   })
 
@@ -49,7 +50,7 @@ export default function Customers() {
     },
   })
 
-  const filtered = (customers ?? []).filter((c) => c.name.includes(search) || (c.phone ?? '').includes(search))
+  const filtered = asArray(customers).filter((c) => c.name.includes(search) || (c.phone ?? '').includes(search))
 
   return (
     <div>

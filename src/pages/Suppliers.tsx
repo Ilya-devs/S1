@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { asArray } from '@/lib/collections'
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
 import { Plus, Search, Phone } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -18,7 +19,7 @@ export default function Suppliers() {
   const { data: suppliers, isLoading } = useQuery({
     queryKey: ['suppliers'],
     queryFn: async () => {
-      const { data } = await supabase.from('suppliers').select('*').eq('is_active', true).order('name')
+      const { data } = await supabase.from('suppliers').select('*').eq('is_active', true).order('name').limit(500)
       return (data ?? []) as Supplier[]
     },
   })
@@ -27,7 +28,7 @@ export default function Suppliers() {
     queryKey: ['supplier_balances'],
     queryFn: async () => {
       const { data } = await supabase.from('supplier_balances').select('*')
-      return new Map((data ?? []).map((b) => [b.supplier_id, Number(b.balance_iqd)]))
+      return new Map(asArray(data).map((b) => [b.supplier_id, Number(b.balance_iqd)]))
     },
   })
 
@@ -49,7 +50,7 @@ export default function Suppliers() {
     },
   })
 
-  const filtered = (suppliers ?? []).filter((s) => s.name.includes(search) || (s.phone ?? '').includes(search))
+  const filtered = asArray(suppliers).filter((s) => s.name.includes(search) || (s.phone ?? '').includes(search))
 
   return (
     <div>

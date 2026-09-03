@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { asArray } from '@/lib/collections'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2, Search } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -93,7 +94,7 @@ export default function Returns() {
                 </tr>
               )}
               {tab === 'sales'
-                ? (salesReturns ?? []).map((r) => (
+                ? asArray(salesReturns).map((r) => (
                     <tr key={r.id} className="border-b border-ink-850 last:border-0 hover:bg-ink-850/50">
                       <td className="px-4 py-3 text-ink-100" dir="ltr">{r.return_number}</td>
                       <td className="px-4 py-3 text-ink-300">{extractName(r.customers) ?? '—'}</td>
@@ -102,7 +103,7 @@ export default function Returns() {
                       <td className="px-4 py-3 text-xs text-ink-500">{formatDateTime(r.created_at)}</td>
                     </tr>
                   ))
-                : (purchaseReturns ?? []).map((r) => (
+                : asArray(purchaseReturns).map((r) => (
                     <tr key={r.id} className="border-b border-ink-850 last:border-0 hover:bg-ink-850/50">
                       <td className="px-4 py-3 text-ink-100" dir="ltr">{r.return_number}</td>
                       <td className="px-4 py-3 text-ink-300">{extractName(r.suppliers) ?? '—'}</td>
@@ -163,7 +164,7 @@ function NewReturnModal({
     queryKey: ['return-parties', kind],
     queryFn: async () => {
       const table = kind === 'sales' ? 'customers' : 'suppliers'
-      const { data } = await supabase.from(table).select('id, name').eq('is_active', true).order('name')
+      const { data } = await supabase.from(table).select('id, name').eq('is_active', true).order('name').limit(500)
       return (data ?? []) as { id: string; name: string }[]
     },
     enabled: open,
@@ -172,14 +173,14 @@ function NewReturnModal({
   const { data: products } = useQuery({
     queryKey: ['products-lite-return'],
     queryFn: async () => {
-      const { data } = await supabase.from('products').select('id, name, sale_price_iqd, cost_price_iqd').order('name')
+      const { data } = await supabase.from('products').select('id, name, sale_price_iqd, cost_price_iqd').order('name').limit(500)
       return data ?? []
     },
     enabled: open,
   })
 
   const filteredProducts = useMemo(
-    () => (products ?? []).filter((p) => p.name.includes(productSearch)).slice(0, 8),
+    () => asArray(products).filter((p) => p.name.includes(productSearch)).slice(0, 8),
     [products, productSearch]
   )
 
@@ -210,27 +211,23 @@ function NewReturnModal({
     try {
       const returnNumber = `${kind === 'sales' ? 'SR' : 'PR'}-${Date.now().toString().slice(-8)}`
       if (kind === 'sales') {
-        const { data: ret, error: retErr } = await supabase
-          .from('sales_returns')
-          .insert({ return_number: returnNumber, customer_id: partyId || null, total_iqd: total, reason: reason || null, created_by: userId })
-          .select('id')
-          .single()
+        const { error: retErr } = await supabase.rpc('create_sales_return', {
+          p_return_number: returnNumber,
+          p_original_invoice_id: null,
+          p_customer_id: partyId || null,
+          p_reason: reason || null,
+          p_items: lines.map((l) => ({ product_id: l.product_id, quantity: l.quantity, unit_price_iqd: l.unit_price_iqd })),
+        })
         if (retErr) throw retErr
-        const { error: itemsErr } = await supabase.from('sales_return_items').insert(
-          lines.map((l) => ({ return_id: ret.id, product_id: l.product_id, quantity: l.quantity, unit_price_iqd: l.unit_price_iqd }))
-        )
-        if (itemsErr) throw itemsErr
       } else {
-        const { data: ret, error: retErr } = await supabase
-          .from('purchase_returns')
-          .insert({ return_number: returnNumber, supplier_id: partyId || null, total_iqd: total, reason: reason || null, created_by: userId })
-          .select('id')
-          .single()
+        const { error: retErr } = await supabase.rpc('create_purchase_return', {
+          p_return_number: returnNumber,
+          p_original_invoice_id: null,
+          p_supplier_id: partyId || null,
+          p_reason: reason || null,
+          p_items: lines.map((l) => ({ product_id: l.product_id, quantity: l.quantity, unit_cost_iqd: l.unit_price_iqd })),
+        })
         if (retErr) throw retErr
-        const { error: itemsErr } = await supabase.from('purchase_return_items').insert(
-          lines.map((l) => ({ return_id: ret.id, product_id: l.product_id, quantity: l.quantity, unit_cost_iqd: l.unit_price_iqd }))
-        )
-        if (itemsErr) throw itemsErr
       }
       reset()
       onSaved()
@@ -245,7 +242,7 @@ function NewReturnModal({
   return (
     <Modal open={open} onClose={onClose} title="مرتجع جديد">
       <div className="max-h-[75vh] space-y-4 overflow-y-auto">
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <button
             type="button"
             onClick={() => {
@@ -280,7 +277,7 @@ function NewReturnModal({
             onChange={(e) => setPartyId(e.target.value)}
           >
             <option value="">اختر...</option>
-            {(parties ?? []).map((p) => (
+            {asArray(parties).map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
               </option>

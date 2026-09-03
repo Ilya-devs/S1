@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@import "./themes/dark.css";
+@import "./themes/light.css";
 
 @theme {
   /* ILYA — Dark luxury palette */
@@ -73,3 +75,23 @@ body {
   to { opacity: 1; transform: translateY(0); }
 }
 .animate-fade-up { animation: fade-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+
+/* Responsive application foundation */
+html { min-width: 320px; overflow-x: hidden; }
+body { min-width: 320px; overflow-x: hidden; }
+button, input, select, textarea { font: inherit; }
+button { -webkit-tap-highlight-color: transparent; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
+}
+
+
+/* Consistent touch/focus behavior across keyboard, mouse and mobile input. */
+:where(button, a, input, select, textarea):focus-visible {
+  outline: 2px solid var(--color-brass-400);
+  outline-offset: 2px;
+}
+@media (pointer: coarse) {
+  button, a[role="button"] { touch-action: manipulation; }
+}

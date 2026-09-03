@@ -1,74 +1,119 @@
-# ILYA Public SaaS Architecture Plan
+# ILYA Public SaaS — Architecture & Delivery Status
 
-## Current implementation
-The browser uses the Supabase publishable key and project URL as a public client configuration fallback. These values are not secrets. Supabase explicitly documents that publishable keys are intended for browser applications; security must be enforced with Auth, grants, and RLS.
+## Implemented foundation
 
-Cloudflare environment variables remain supported and override the built-in public configuration when present.
+ILYA is a multi-tenant accounting SaaS. Each registered account receives a private organization automatically. Existing legacy data is migrated into one legacy organization.
 
-## Required next vertical slice: multi-tenant workspaces
-The current database is a single-workspace accounting schema. Converting it safely to a public SaaS platform requires a database migration and UI changes together.
+Security boundary:
 
-Target model:
+```text
+Supabase Auth
+   ↓
+profiles
+   ↓
+organization_members
+   ↓
+active_organization_id
+   ↓
+RLS on every tenant-owned table
+```
 
-organization
-  -> organization_members
-  -> invitations
-  -> users/profiles
+The browser can send arbitrary `organization_id`, but database triggers overwrite it on insert and reject tenant changes on update. Privileged financial operations are server-side PostgreSQL functions and are atomic.
 
-Every tenant-owned accounting record must carry organization_id and every RLS policy must enforce membership.
+## Implemented product capabilities
 
-Do not deploy a partial tenant migration. It must be implemented and verified end-to-end.
+1. Public account registration
+2. Email/password login
+3. Password reset
+4. Email-confirmation compatible flow
+5. Automatic profile provisioning
+6. Automatic private workspace creation
+7. Workspace switcher
+8. Multiple workspaces per user
+9. Workspace creation
+10. Employee invitations with hashed random tokens
+11. Invitation acceptance
+12. Team/member management
+13. Role management
+14. Employee activation/deactivation
+15. Owner protection (organization cannot lose its last active owner)
+16. Tenant-scoped settings
+17. Tenant-scoped customers
+18. Tenant-scoped suppliers
+19. Tenant-scoped products
+20. Tenant-scoped stock ledger
+21. Tenant-scoped sales
+22. Tenant-scoped purchases
+23. Tenant-scoped sales returns
+24. Tenant-scoped purchase returns
+25. Tenant-scoped debt payments
+26. Tenant-scoped expenses
+27. Stock adjustments
+28. Atomic sales invoice creation
+29. Atomic purchase invoice creation
+30. Atomic returns
+31. Server-side stock validation
+32. Server-side payment validation
+33. Idempotent invoice client IDs
+34. Tenant-scoped SKU/barcode uniqueness
+35. Tenant-scoped invoice numbering
+36. Audit logging of critical business writes
+37. Role-based navigation
+38. RLS tenant isolation
+39. PWA installability
+40. Static-only service-worker caching
+41. Runtime configuration fallback using public Supabase publishable key
+42. Error boundary instead of blank-page failure
+43. Startup diagnostics
+44. Responsive desktop/tablet/mobile layouts
+45. Backup export
+46. Date-range reports
+47. Low-stock indicators
+48. Arabic/IQD-first UX
+49. Cloudflare Pages Git integration
+50. GitHub build verification
 
-## Planned product capabilities (not claimed as implemented)
-1. Organization/workspace creation
-2. Workspace switcher
-3. Employee invitations
-4. Role-based permissions
-5. Custom roles/permissions
-6. Employee activation/deactivation
-7. Audit log
-8. Login/session management
-9. Device/session management
-10. Password reset
-11. Email confirmation
-12. Customer management
-13. Supplier management
-14. Product catalog
-15. Barcode support
-16. Categories
-17. Stock ledger
-18. Stock adjustments
-19. Sales invoices
-20. Purchase invoices
-21. Sales returns
-22. Purchase returns
-23. Customer debts
-24. Supplier debts
-25. Payments
-26. Expenses
-27. Dashboard
-28. Profit/loss reporting
-29. Inventory reporting
-30. Debt reporting
-31. Date-range reporting
-32. Invoice printing/PDF
-33. Data export
-34. Data import
-35. Backup/restore
-36. Organization settings
-37. Company branding
-38. Low-stock alerts
-39. Search/filtering
-40. Mobile responsive UI
-41. PWA installation
-42. Offline-safe drafts
-43. Idempotent invoice creation
-44. Error boundary/diagnostics
-45. Health/configuration diagnostics
-46. Security/RLS regression tests
-47. Tenant-isolation tests
-48. Migration verification
-49. Build/deployment verification
-50. Activity/operation identifiers
+## Security principles
 
-These are a roadmap, not a claim that all 50 are currently implemented.
+- `sb_publishable_*` is allowed in browser code; it is not a secret.
+- Never ship `sb_secret_*`, `service_role`, database passwords or privileged API tokens.
+- RLS is the authoritative tenant boundary.
+- Client UI restrictions are convenience only; database policies enforce authorization.
+- Financial multi-step operations use atomic database functions.
+- Invitation plaintext tokens are never stored; only SHA-256 hashes are stored.
+- Existing business data is not intentionally deleted by tenant migration.
+
+## Required migration order
+
+1. `0001_init.sql`
+2. `0002_hardening.sql`
+3. `0003_auth_profile_provisioning.sql`
+4. `0004_multitenant_saas.sql`
+5. `0005_atomic_operations.sql`
+
+Do not rerun `0001` on an existing database.
+
+## Remaining optional enterprise roadmap
+
+These are deliberately not claimed as implemented until their end-to-end database + UI + test paths exist:
+
+- Subscription/billing plans
+- Usage limits
+- Super-admin control plane
+- Email delivery provider
+- Scheduled cloud backups
+- PDF server rendering
+- CSV/Excel import wizard
+- Advanced accounting journal/ledger
+- Multi-currency
+- Branch-level inventory
+- POS barcode scanner integration
+- Advanced tax/VAT rules
+- Supplier/customer statements as PDFs
+- Automated low-stock notifications
+- Web push notifications
+- Two-factor authentication
+- SSO
+- Webhooks/API keys
+- Rate-limit dashboard
+- Full end-to-end browser test suite
