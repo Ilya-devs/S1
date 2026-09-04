@@ -90,6 +90,7 @@ The browser can send arbitrary `organization_id`, but database triggers overwrit
 3. `0003_auth_profile_provisioning.sql`
 4. `0004_multitenant_saas.sql`
 5. `0005_atomic_operations.sql`
+6. `0006_fix_signup_provisioning.sql`
 
 Do not rerun `0001` on an existing database.
 

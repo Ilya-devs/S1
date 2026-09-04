@@ -137,6 +137,7 @@ The database uses ordered migrations:
 3. `0003_auth_profile_provisioning.sql` — Auth profile provisioning.
 4. `0004_multitenant_saas.sql` — organization isolation, memberships, workspace switching and tenant RLS.
 5. `0005_atomic_operations.sql` — atomic financial operations, stock adjustments, debt-payment validation and audit triggers.
+6. `0006_fix_signup_provisioning.sql` — fixes a bug where registering a second (or later) user failed with "Database error saving new user"; see `DATABASE-MIGRATION-RECOVERY.md`. Required on every deployment, including fresh ones.
 
 If `0001` is already applied, **do not run it again**. Apply only the missing migrations in order. `0004` migrates existing data into a legacy organization; it does not intentionally delete business data.
 
@@ -199,8 +200,11 @@ Apply migrations in this order:
 1. `supabase/migrations/0001_init.sql`
 2. `supabase/migrations/0002_hardening.sql`
 3. `supabase/migrations/0003_auth_profile_provisioning.sql`
+4. `supabase/migrations/0004_multitenant_saas.sql`
+5. `supabase/migrations/0005_atomic_operations.sql`
+6. `supabase/migrations/0006_fix_signup_provisioning.sql`
 
-Migration 0003 is retained for compatibility. Migration 0004 supersedes its signup behavior: every new Auth user gets a private organization and `owner` membership automatically. Existing data is assigned to a legacy organization and protected by tenant RLS.
+Migration 0003 is retained for compatibility. Migration 0004 supersedes its signup behavior: every new Auth user gets a private organization and `owner` membership automatically. Existing data is assigned to a legacy organization and protected by tenant RLS. Migration 0006 is required — see `DATABASE-MIGRATION-RECOVERY.md`.
 
 
 ## Public SaaS model

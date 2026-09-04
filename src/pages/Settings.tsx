@@ -55,6 +55,7 @@ export default function Settings() {
 
   const saveSettings = useMutation({
     mutationFn: async () => {
+      if (!orgId) throw new Error('لا يوجد متجر نشط')
       const { error } = await supabase
         .from('app_settings')
         .update({
@@ -63,6 +64,7 @@ export default function Settings() {
           backup_email: form.backup_email,
         })
         .eq('id', 1)
+        .eq('organization_id', orgId)
       if (error) throw error
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['app_settings', orgId] }),
@@ -118,6 +120,11 @@ export default function Settings() {
                 disabled={!isAdmin}
               />
             </div>
+            {saveSettings.isError && (
+              <p role="alert" className="text-xs text-crimson-400">
+                {saveSettings.error instanceof Error ? saveSettings.error.message : 'تعذر حفظ الإعدادات'}
+              </p>
+            )}
             {isAdmin && (
               <Button onClick={() => saveSettings.mutate()} disabled={saveSettings.isPending}>
                 {saveSettings.isPending ? 'جارٍ الحفظ...' : 'حفظ التغييرات'}

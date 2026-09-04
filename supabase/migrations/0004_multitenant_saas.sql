@@ -475,12 +475,31 @@ as $$
 declare
   org uuid := public.current_organization_id();
 begin
-  if org is null then
-    raise exception 'No active organization';
-  end if;
-
   if tg_op = 'INSERT' then
-    new.organization_id := org;
+    -- Normal path: an authenticated session with an active organization.
+    -- Always overwrite organization_id with the caller's real current org so
+    -- an authenticated client can never insert a row into a tenant it does
+    -- not belong to.
+    if org is not null then
+      new.organization_id := org;
+    elsif new.organization_id is null then
+      -- No authenticated session (auth.uid() is null) AND no organization_id
+      -- was supplied. This is reachable only by an anonymous/unauthenticated
+      -- request, which is already blocked here since it has nothing to work
+      -- with.
+      raise exception 'No active organization';
+    end if;
+    -- else: auth.uid() is null (no JWT/session) but organization_id was
+    -- already set by the caller. This path is reachable only from trusted,
+    -- session-less SECURITY DEFINER server code (e.g. new-user workspace
+    -- provisioning run by the Supabase Auth trigger, or this migration's own
+    -- setup scripts) -- never by a real client request: every tenant table's
+    -- own row-level-security policy independently requires
+    -- is_org_member(organization_id), which itself requires auth.uid() to
+    -- match a real active membership row, so an anonymous or logged-out
+    -- request can never pass that check regardless of what happens here.
+    -- We therefore trust the organization_id such trusted code already set.
+
     if tg_table_name() in (
       'customers','suppliers','products','stock_movements',
       'sales_invoices','purchase_invoices','sales_returns','purchase_returns',
@@ -492,8 +511,13 @@ begin
     elsif tg_table_name() = 'backup_log' then
       new.triggered_by := auth.uid();
     end if;
-  elsif new.organization_id is distinct from old.organization_id then
-    raise exception 'Changing organization_id is not allowed';
+  else
+    if org is null then
+      raise exception 'No active organization';
+    end if;
+    if new.organization_id is distinct from old.organization_id then
+      raise exception 'Changing organization_id is not allowed';
+    end if;
   end if;
 
   return new;

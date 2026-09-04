@@ -11,11 +11,18 @@ export function NotificationBell() {
   const qc = useQueryClient()
   const [open, setOpen] = useState(false)
 
+  const orgId = profile?.active_organization_id
+
   const { data } = useQuery({
-    queryKey: ['notifications', profile?.id],
-    enabled: !!profile?.id,
+    queryKey: ['notifications', profile?.id, orgId],
+    enabled: !!profile?.id && !!orgId,
     queryFn: async () => {
-      const { data, error } = await supabase.from('notifications').select('id,title,body,is_read,created_at').order('created_at', { ascending: false }).limit(20)
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('id,title,body,is_read,created_at')
+        .eq('organization_id', orgId ?? '')
+        .order('created_at', { ascending: false })
+        .limit(20)
       if (error) throw error
       return data ?? []
     },
@@ -26,9 +33,9 @@ export function NotificationBell() {
   const unread = notifications.filter((n) => !n.is_read).length
 
   async function markAllRead() {
-    if (!profile?.id || unread === 0) return
-    await supabase.from('notifications').update({ is_read: true }).eq('user_id', profile.id).eq('is_read', false)
-    void qc.invalidateQueries({ queryKey: ['notifications', profile.id] })
+    if (!profile?.id || !orgId || unread === 0) return
+    await supabase.from('notifications').update({ is_read: true }).eq('user_id', profile.id).eq('organization_id', orgId).eq('is_read', false)
+    void qc.invalidateQueries({ queryKey: ['notifications', profile.id, orgId] })
   }
 
   return (

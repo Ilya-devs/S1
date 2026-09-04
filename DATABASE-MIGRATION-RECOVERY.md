@@ -7,6 +7,21 @@
 3. `0003_auth_profile_provisioning.sql`
 4. `0004_multitenant_saas.sql`
 5. `0005_atomic_operations.sql`
+6. `0006_fix_signup_provisioning.sql`
+
+## If registration fails with "Database error saving new user"
+
+This was a real bug in the originally shipped `0004_multitenant_saas.sql`:
+the `force_current_org()` trigger that runs on every insert into
+`app_settings` required an authenticated session (`auth.uid()`), but the
+Auth service's own new-user provisioning trigger runs with no session,
+so it always failed for the second and every later signup.
+
+Run `supabase/migrations/0006_fix_signup_provisioning.sql` once in the SQL
+Editor. It is idempotent (safe to run more than once) and does not delete
+or modify existing business data. It also automatically provisions a
+workspace for any Auth user who signed up while this bug was present and
+therefore currently has no organization.
 
 ## If 0004 previously failed with `products_sku_key`
 
