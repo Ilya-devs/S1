@@ -137,15 +137,18 @@ export default function Settings() {
           <Card className="p-5">
             <p className="mb-4 text-sm font-medium text-ink-300">المستخدمون</p>
             <div className="space-y-2">
-              {asArray(users).map((u) => (
-                <div key={u.id} className="flex items-center justify-between rounded-xl bg-ink-850 px-3 py-2.5">
-                  <div>
-                    <p className="text-sm text-ink-100">{Array.isArray(u.profiles) ? u.profiles[0]?.full_name : u.profiles?.full_name ?? '—'}</p>
-                    <p className="text-[11px] text-ink-500">{(Array.isArray(u.profiles) ? u.profiles[0]?.phone : u.profiles?.phone) ?? '—'}</p>
+              {asArray(users).map((u) => {
+                const person = Array.isArray(u.profiles) ? u.profiles[0] : u.profiles
+                return (
+                  <div key={u.user_id} className="flex items-center justify-between rounded-xl bg-ink-850 px-3 py-2.5">
+                    <div>
+                      <p className="text-sm text-ink-100">{person?.full_name ?? '—'}</p>
+                      <p className="text-[11px] text-ink-500">{person?.phone ?? '—'}</p>
+                    </div>
+                    <Badge tone="brass">{roleLabel(u.role)}</Badge>
                   </div>
-                  <Badge tone="brass">{roleLabel(u.role)}</Badge>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </Card>
 

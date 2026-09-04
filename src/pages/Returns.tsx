@@ -3,7 +3,6 @@ import { asArray } from '@/lib/collections'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2, Search } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { useAuth } from '@/context/AuthContext'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Card, Input, Label } from '@/components/ui/primitives'
 import { Button } from '@/components/ui/Button'
@@ -14,7 +13,6 @@ type Tab = 'sales' | 'purchases'
 
 export default function Returns() {
   const qc = useQueryClient()
-  const { profile } = useAuth()
   const [tab, setTab] = useState<Tab>('sales')
   const [modalOpen, setModalOpen] = useState(false)
 
@@ -121,7 +119,6 @@ export default function Returns() {
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         defaultTab={tab}
-        userId={profile?.id}
         onSaved={() => {
           void qc.invalidateQueries({ queryKey: ['sales_returns'] })
           void qc.invalidateQueries({ queryKey: ['purchase_returns'] })
@@ -144,13 +141,11 @@ function NewReturnModal({
   onClose,
   onSaved,
   defaultTab,
-  userId,
 }: {
   open: boolean
   onClose: () => void
   onSaved: () => void
   defaultTab: Tab
-  userId?: string
 }) {
   const [kind, setKind] = useState<Tab>(defaultTab)
   const [partyId, setPartyId] = useState('')

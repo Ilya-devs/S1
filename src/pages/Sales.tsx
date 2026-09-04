@@ -3,7 +3,6 @@ import { asArray } from '@/lib/collections'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2, Search } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { useAuth } from '@/context/AuthContext'
 import type { Product, Customer, CartLine } from '@/lib/types'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Card, Input, Label, Badge } from '@/components/ui/primitives'
@@ -13,7 +12,6 @@ import { formatIQD, formatDateTime, generateInvoiceNumber, extractName } from '@
 
 export default function Sales() {
   const qc = useQueryClient()
-  const { profile } = useAuth()
   const [modalOpen, setModalOpen] = useState(false)
 
   const { data: invoices, isLoading } = useQuery({
@@ -104,7 +102,6 @@ export default function Sales() {
           void qc.invalidateQueries({ queryKey: ['customer_balances'] })
           void qc.invalidateQueries({ queryKey: ['dashboard'] })
         }}
-        userId={profile?.id}
       />
     </div>
   )
@@ -114,12 +111,10 @@ function NewSaleModal({
   open,
   onClose,
   onSaved,
-  userId,
 }: {
   open: boolean
   onClose: () => void
   onSaved: () => void
-  userId?: string
 }) {
   const [customerId, setCustomerId] = useState<string>('')
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'credit' | 'partial'>('cash')

@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { LogOut, Menu } from 'lucide-react'
+import { LogOut } from 'lucide-react'
 import { navItems } from '@/components/nav/nav-items'
 import { useAuth } from '@/context/AuthContext'
 import { cn } from '@/lib/cn'
